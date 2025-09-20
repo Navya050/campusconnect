@@ -1,16 +1,18 @@
 import { useRouter } from "expo-router";
+import axios from "axios";
 import React, { useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { API_URL } from "@/constants/appConstants";
 
 export default function Register() {
   const [firstName, setFirstName] = useState("");
@@ -21,6 +23,7 @@ export default function Register() {
   const [lastNameError, setLastNameError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   const validateFirstName = (name: string) => {
@@ -92,9 +95,25 @@ export default function Register() {
       isEmailValid &&
       isPasswordValid
     ) {
-      Alert.alert("Success", "Account created successfully!");
+      axios
+        .post(API_URL + "/user/signup", {
+          firstName,
+          lastName,
+          email,
+          password,
+        })
+        .then((response) => {
+          // Handle the successful response data here
+          console.log(response.data);
+          Alert.alert("Success", "Account created successfully!");
+
+          router.back();
+        })
+        .catch((error) => {
+          console.log(error);
+          Alert.alert("Error", "Account creation failed!");
+        });
       // Navigate back to login
-      router.back();
     }
   };
 
@@ -197,20 +216,33 @@ export default function Register() {
             {/* Password */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={[styles.input, passwordError ? styles.inputError : null]}
-                placeholder="Enter your password"
-                placeholderTextColor="#9CA3AF"
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (passwordError) validatePassword(text);
-                }}
-                onBlur={() => validatePassword(password)}
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={[
+                    styles.passwordInput,
+                    passwordError ? styles.inputError : null,
+                  ]}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#9CA3AF"
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (passwordError) validatePassword(text);
+                  }}
+                  onBlur={() => validatePassword(password)}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {/* <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Text style={styles.eyeText}>
+                    {showPassword ? "👁️" : "👁️‍🗨️"}
+                  </Text>
+                </TouchableOpacity> */}
+              </View>
               {passwordError ? (
                 <Text style={styles.errorText}>{passwordError}</Text>
               ) : null}
@@ -324,5 +356,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#1E3A8A",
     fontWeight: "600",
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    position: "relative",
+  },
+  passwordInput: {
+    height: 56,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingRight: 50,
+    fontSize: 16,
+    color: "#111827",
+    backgroundColor: "#FFFFFF",
+    flex: 1,
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 16,
+    height: 56,
+    justifyContent: "center",
+    alignItems: "center",
+    width: 30,
+  },
+  eyeText: {
+    fontSize: 18,
   },
 });

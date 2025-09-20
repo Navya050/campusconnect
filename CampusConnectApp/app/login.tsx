@@ -1,15 +1,18 @@
+import { API_URL } from "@/constants/appConstants";
+import authService from "@/services/authService";
+import axios from "axios";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function Login() {
@@ -17,6 +20,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   const validateEmail = (email: string) => {
@@ -50,14 +54,28 @@ export default function Login() {
     return true;
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     const isEmailValid = validateEmail(email);
     const isPasswordValid = validatePassword(password);
 
     if (isEmailValid && isPasswordValid) {
-      Alert.alert("Success", "Login successful!");
-      // ✅ With expo-router (SDK 54), navigation works like this:
-      // router.replace("/(tabs)"); or router.push("/home");
+      try {
+        const response = await axios.post(API_URL + "/user/login", {
+          email,
+          password,
+        });
+
+        // Store the token and user data
+        await authService.storeAuthData(response.data, { email });
+
+        console.log("Login successful, token stored");
+
+        // Navigate immediately without alert to avoid navigation conflicts
+        router.replace("/(tabs)");
+      } catch (error) {
+        console.log(error);
+        Alert.alert("Error", "Check credentials!");
+      }
     }
   };
 
@@ -115,20 +133,33 @@ export default function Login() {
             {/* Password */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={[styles.input, passwordError ? styles.inputError : null]}
-                placeholder="Enter your password"
-                placeholderTextColor="#9CA3AF"
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (passwordError) validatePassword(text);
-                }}
-                onBlur={() => validatePassword(password)}
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={[
+                    styles.passwordInput,
+                    passwordError ? styles.inputError : null,
+                  ]}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#9CA3AF"
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (passwordError) validatePassword(text);
+                  }}
+                  onBlur={() => validatePassword(password)}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {/* <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Text style={styles.eyeText}>
+                    {showPassword ? "👁️" : "👁️‍🗨️"}
+                  </Text>
+                </TouchableOpacity> */}
+              </View>
               {passwordError ? (
                 <Text style={styles.errorText}>{passwordError}</Text>
               ) : null}
@@ -239,5 +270,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#1E3A8A",
     fontWeight: "600",
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    position: "relative",
+  },
+  passwordInput: {
+    height: 56,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingRight: 50,
+    fontSize: 16,
+    color: "#111827",
+    backgroundColor: "#FFFFFF",
+    flex: 1,
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 16,
+    height: 56,
+    justifyContent: "center",
+    alignItems: "center",
+    width: 30,
+  },
+  eyeText: {
+    fontSize: 18,
   },
 });
