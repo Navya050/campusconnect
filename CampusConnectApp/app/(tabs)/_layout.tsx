@@ -2,17 +2,12 @@ import { Tabs, useRouter } from "expo-router";
 import React from "react";
 import { Alert, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { HapticTab } from "@/components/haptic-tab";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
-import authService from "@/services/authService";
+import { authAPI } from "../../lib/auth";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const router = useRouter();
 
-  const handleLogout = async () => { console.log("clicked")
+  const handleLogout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       {
         text: "Cancel",
@@ -23,11 +18,8 @@ export default function TabLayout() {
         style: "destructive",
         onPress: async () => {
           try {
-            await authService.clearAuthData();
-            console.log(
-              "Auth data cleared - main layout will handle navigation"
-            );
-            // Don't navigate manually - let the main layout's useEffect handle it
+            await authAPI.logout();
+            router.replace("/login");
           } catch (error) {
             console.error("Error during logout:", error);
             Alert.alert("Error", "Failed to logout. Please try again.");
@@ -38,19 +30,13 @@ export default function TabLayout() {
   };
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}
-    >
+    <Tabs screenOptions={{ headerShown: false }}>
       <Tabs.Screen
         name="index"
         options={{
           title: "Home",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
+            <Ionicons name="home-outline" size={28} color={color} />
           ),
         }}
       />
@@ -59,7 +45,7 @@ export default function TabLayout() {
         options={{
           title: "Explore",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
+            <Ionicons name="search-outline" size={28} color={color} />
           ),
         }}
       />
@@ -68,8 +54,7 @@ export default function TabLayout() {
         options={{
           title: "Logout",
           tabBarIcon: ({ color }) => (
-            // <IconSymbol size={28} name="arrow.right.square.fill" color={color} />
-             <Ionicons name="log-out-outline" size={28} color={color} />
+            <Ionicons name="log-out-outline" size={28} color={color} />
           ),
         }}
         listeners={{

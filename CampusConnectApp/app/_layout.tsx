@@ -1,13 +1,10 @@
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
 import { Stack, useRouter, useSegments } from "expo-router";
-import { useColorScheme } from "react-native"; // ✅ use from react-native in SDK 54
-import "react-native-reanimated";
+import { useColorScheme } from "react-native";
 import { useEffect, useState } from "react";
-import authService from "@/services/authService";
+import { Provider } from "react-redux";
+import { PaperProvider } from "react-native-paper";
+import { store } from "../lib/store";
+import { authAPI } from "../lib/auth";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -17,7 +14,7 @@ export default function RootLayout() {
 
   const checkAuthStatus = async () => {
     try {
-      const authenticated = await authService.isAuthenticated();
+      const authenticated = await authAPI.isAuthenticated();
       setIsAuthenticated(authenticated);
       return authenticated;
     } catch (error) {
@@ -62,12 +59,14 @@ export default function RootLayout() {
   }, [isAuthenticated, segments]);
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="login" />
-        <Stack.Screen name="register" />
-        <Stack.Screen name="(tabs)" />
-      </Stack>
-    </ThemeProvider>
+    <Provider store={store}>
+      <PaperProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="login" />
+          <Stack.Screen name="register" />
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+      </PaperProvider>
+    </Provider>
   );
 }
