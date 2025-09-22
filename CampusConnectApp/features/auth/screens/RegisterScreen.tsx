@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { View, Alert, StyleSheet } from "react-native";
 import { TextInput, Button, Card, Title } from "react-native-paper";
 import { useRouter } from "expo-router";
-import { useAppDispatch, useAppSelector } from "../lib/hooks";
-import { signupUser, clearError } from "../lib/store";
+import { useAppDispatch, useAppSelector } from "../../../shared/hooks";
+import { signupUser, clearError } from "../store/authSlice";
 
 export default function RegisterScreen() {
   const [firstName, setFirstName] = useState("");

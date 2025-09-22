@@ -2,7 +2,7 @@ import { Tabs, useRouter } from "expo-router";
 import React from "react";
 import { Alert, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { authAPI } from "../../lib/auth";
+import { authAPI } from "../../features/auth/api/auth";
 
 export default function TabLayout() {
   const router = useRouter();

@@ -1,5 +1,32 @@
-import { createSlice, configureStore, createAsyncThunk } from '@reduxjs/toolkit';
-import { authAPI } from './auth';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { authAPI } from '../api/auth';
+
+// Async actions
+export const loginUser = createAsyncThunk(
+  'auth/login',
+  async (credentials: { email: string; password: string }, { rejectWithValue }) => {
+    try {
+      return await authAPI.login(credentials.email, credentials.password);
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.data || 'Login failed');
+    }
+  }
+);
+
+export const signupUser = createAsyncThunk(
+  'auth/signup',
+  async (userData: { firstName: string; lastName: string; email: string; password: string }, { rejectWithValue }) => {
+    try {
+      return await authAPI.signup(userData);
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.data || 'Signup failed');
+    }
+  }
+);
+
+export const logoutUser = createAsyncThunk('auth/logout', async () => {
+  await authAPI.logout();
+});
 
 // Auth slice
 const authSlice = createSlice({
@@ -45,41 +72,5 @@ const authSlice = createSlice({
   },
 });
 
-// Async actions
-export const loginUser = createAsyncThunk(
-  'auth/login',
-  async (credentials: { email: string; password: string }, { rejectWithValue }) => {
-    try {
-      return await authAPI.login(credentials.email, credentials.password);
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.data || 'Login failed');
-    }
-  }
-);
-
-export const signupUser = createAsyncThunk(
-  'auth/signup',
-  async (userData: { firstName: string; lastName: string; email: string; password: string }, { rejectWithValue }) => {
-    try {
-      return await authAPI.signup(userData);
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.data || 'Signup failed');
-    }
-  }
-);
-
-export const logoutUser = createAsyncThunk('auth/logout', async () => {
-  await authAPI.logout();
-});
-
 export const { clearError } = authSlice.actions;
-
-// Store
-export const store = configureStore({
-  reducer: {
-    auth: authSlice.reducer,
-  },
-});
-
-export type RootState = ReturnType<typeof store.getState>;
-export type AppDispatch = typeof store.dispatch;
+export default authSlice.reducer;

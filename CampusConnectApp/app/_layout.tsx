@@ -3,11 +3,13 @@ import { useColorScheme } from "react-native";
 import { useEffect, useState } from "react";
 import { Provider } from "react-redux";
 import { PaperProvider } from "react-native-paper";
-import { store } from "../lib/store";
-import { authAPI } from "../lib/auth";
+import { store } from "../shared/store";
+import { authAPI } from "../features/auth/api/auth";
+import { getTheme } from "../shared/theme";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const theme = getTheme(colorScheme === 'dark');
   const router = useRouter();
   const segments = useSegments();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -60,7 +62,7 @@ export default function RootLayout() {
 
   return (
     <Provider store={store}>
-      <PaperProvider>
+      <PaperProvider theme={theme}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="login" />
           <Stack.Screen name="register" />

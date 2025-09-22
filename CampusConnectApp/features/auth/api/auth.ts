@@ -1,7 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { config } from "../../../shared/config/environment";
 
-const API_URL = "http://localhost:3000/api";
+const API_URL = config.API_URL;
 
 // Simple auth API
 export const authAPI = {

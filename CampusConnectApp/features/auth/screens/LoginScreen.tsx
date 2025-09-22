@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { View, Alert, StyleSheet } from "react-native";
-import { TextInput, Button, Card, Title } from "react-native-paper";
+import { TextInput, Button, Card, Title, useTheme } from "react-native-paper";
 import { useRouter } from "expo-router";
-import { useAppDispatch, useAppSelector } from "../lib/hooks";
-import { loginUser, clearError } from "../lib/store";
+import { useAppDispatch, useAppSelector } from "../../../shared/hooks";
+import { loginUser, clearError } from "../store/authSlice";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -11,6 +11,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { isLoading, error, isAuthenticated } = useAppSelector((state) => state.auth);
+  const theme = useTheme();
 
   useEffect(() => {
     if (isAuthenticated) router.replace("/(tabs)");
@@ -29,11 +30,13 @@ export default function LoginScreen() {
     }
   };
 
+  const dynamicStyles = createStyles(theme);
+
   return (
-    <View style={styles.container}>
-      <Card style={styles.card}>
+    <View style={dynamicStyles.container}>
+      <Card style={dynamicStyles.card}>
         <Card.Content>
-          <Title style={styles.title}>Welcome Back</Title>
+          <Title style={dynamicStyles.title}>Welcome Back</Title>
 
           <TextInput
             label="Email"
@@ -42,7 +45,7 @@ export default function LoginScreen() {
             mode="outlined"
             keyboardType="email-address"
             autoCapitalize="none"
-            style={styles.input}
+            style={dynamicStyles.input}
           />
 
           <TextInput
@@ -51,7 +54,7 @@ export default function LoginScreen() {
             onChangeText={setPassword}
             mode="outlined"
             secureTextEntry
-            style={styles.input}
+            style={dynamicStyles.input}
           />
 
           <Button
@@ -59,7 +62,7 @@ export default function LoginScreen() {
             onPress={handleLogin}
             loading={isLoading}
             disabled={!email || !password || isLoading}
-            style={styles.button}
+            style={dynamicStyles.button}
           >
             Sign In
           </Button>
@@ -67,7 +70,7 @@ export default function LoginScreen() {
           <Button
             mode="text"
             onPress={() => router.push("/register")}
-            style={styles.textButton}
+            style={dynamicStyles.textButton}
           >
             Don't have an account? Sign Up
           </Button>
@@ -77,19 +80,21 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
     padding: 20,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: theme.colors.background,
   },
   card: {
     padding: 20,
+    backgroundColor: theme.colors.surface,
   },
   title: {
     textAlign: "center",
     marginBottom: 30,
+    color: theme.colors.onSurface,
   },
   input: {
     marginBottom: 16,

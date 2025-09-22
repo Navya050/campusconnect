@@ -1,1 +1,3 @@
-export const API_URL = "http://192.168.1.81:3406/api";
+import { config } from '../shared/config/environment';
+
+export const API_URL = config.API_URL;
