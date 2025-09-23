@@ -7,6 +7,7 @@ const API_URL = config.API_URL;
 // Simple auth API
 export const authAPI = {
   async login(email: string, password: string) {
+    console.log("testing");
     const response = await axios.post(`${API_URL}/user/login`, { email, password });
     const { token, expiresIn } = response.data;
 
