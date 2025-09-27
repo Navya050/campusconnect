@@ -1,32 +1,35 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { View, Alert, StyleSheet } from "react-native";
 import { TextInput, Button, Card, Title, useTheme } from "react-native-paper";
 import { useRouter } from "expo-router";
-import { useAppDispatch, useAppSelector } from "../../../shared/hooks";
-import { loginUser, clearError } from "../store/authSlice";
+import { useLogin } from "../../../shared/hooks/useAuth";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
-  const dispatch = useAppDispatch();
-  const { isLoading, error, isAuthenticated } = useAppSelector((state) => state.auth);
   const theme = useTheme();
 
-  useEffect(() => {
-    if (isAuthenticated) router.replace("/(tabs)");
-  }, [isAuthenticated]);
+  const loginMutation = useLogin();
 
-  useEffect(() => {
-    if (error) {
-      Alert.alert("Error", error);
-      dispatch(clearError());
-    }
-  }, [error]);
-
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (email && password) {
-      dispatch(loginUser({ email, password }));
+      loginMutation.mutate(
+        { email, password },
+        {
+          onSuccess: () => {
+            Alert.alert("Success", "Login successful!", [
+              {
+                text: "OK",
+                onPress: () => router.replace("/(tabs)"),
+              },
+            ]);
+          },
+          onError: (error) => {
+            Alert.alert("Error", error.message || "Login failed");
+          },
+        }
+      );
     }
   };
 
@@ -60,8 +63,8 @@ export default function LoginScreen() {
           <Button
             mode="contained"
             onPress={handleLogin}
-            loading={isLoading}
-            disabled={!email || !password || isLoading}
+            loading={loginMutation.isPending}
+            disabled={!email || !password || loginMutation.isPending}
             style={dynamicStyles.button}
           >
             Sign In
@@ -72,7 +75,7 @@ export default function LoginScreen() {
             onPress={() => router.push("/register")}
             style={dynamicStyles.textButton}
           >
-            Don't have an account? Sign Up
+            Don&apos;t have an account? Sign Up
           </Button>
         </Card.Content>
       </Card>
@@ -80,30 +83,31 @@ export default function LoginScreen() {
   );
 }
 
-const createStyles = (theme: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 20,
-    backgroundColor: theme.colors.background,
-  },
-  card: {
-    padding: 20,
-    backgroundColor: theme.colors.surface,
-  },
-  title: {
-    textAlign: "center",
-    marginBottom: 30,
-    color: theme.colors.onSurface,
-  },
-  input: {
-    marginBottom: 16,
-  },
-  button: {
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  textButton: {
-    marginTop: 8,
-  },
-});
+const createStyles = (theme: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: "center",
+      padding: 20,
+      backgroundColor: theme.colors.background,
+    },
+    card: {
+      padding: 20,
+      backgroundColor: theme.colors.surface,
+    },
+    title: {
+      textAlign: "center",
+      marginBottom: 30,
+      color: theme.colors.onSurface,
+    },
+    input: {
+      marginBottom: 16,
+    },
+    button: {
+      marginTop: 16,
+      marginBottom: 8,
+    },
+    textButton: {
+      marginTop: 8,
+    },
+  });

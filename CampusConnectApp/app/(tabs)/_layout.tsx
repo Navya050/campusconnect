@@ -1,67 +1,78 @@
-import { Tabs, useRouter } from "expo-router";
+import { Tabs } from "expo-router";
 import React from "react";
-import { Alert, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { authAPI } from "../../features/auth/api/auth";
 
 export default function TabLayout() {
-  const router = useRouter();
-
-  const handleLogout = async () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await authAPI.logout();
-            router.replace("/login");
-          } catch (error) {
-            console.error("Error during logout:", error);
-            Alert.alert("Error", "Failed to logout. Please try again.");
-          }
-        },
-      },
-    ]);
-  };
-
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: "#2196F3",
+        tabBarInactiveTintColor: "#757575",
+        tabBarStyle: {
+          backgroundColor: "#ffffff",
+          borderTopWidth: 1,
+          borderTopColor: "#e0e0e0",
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: "500",
+        },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="home-outline" size={28} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="study-space"
         options={{
-          title: "Explore",
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="search-outline" size={28} color={color} />
+          title: "Study",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "library" : "library-outline"}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />
       <Tabs.Screen
-        name="logout"
+        name="campus"
         options={{
-          title: "Logout",
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="log-out-outline" size={28} color={color} />
+          title: "Campus",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "storefront" : "storefront-outline"}
+              size={24}
+              color={color}
+            />
           ),
         }}
-        listeners={{
-          tabPress: (e) => {
-            e.preventDefault();
-            handleLogout();
-          },
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "person" : "person-outline"}
+              size={24}
+              color={color}
+            />
+          ),
         }}
       />
     </Tabs>

@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { View, Alert, StyleSheet } from "react-native";
 import { TextInput, Button, Card, Title } from "react-native-paper";
 import { useRouter } from "expo-router";
-import { useAppDispatch, useAppSelector } from "../../../shared/hooks";
-import { signupUser, clearError } from "../store/authSlice";
+import { useSignup } from "../../../shared/hooks/useAuth";
 
 export default function RegisterScreen() {
   const [firstName, setFirstName] = useState("");
@@ -11,25 +10,23 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
-  const dispatch = useAppDispatch();
-  const { isLoading, error } = useAppSelector((state) => state.auth);
 
-  useEffect(() => {
-    if (error) {
-      Alert.alert("Error", error);
-      dispatch(clearError());
-    }
-  }, [error]);
+  const signupMutation = useSignup();
 
   const handleRegister = async () => {
     if (firstName && lastName && email && password) {
-      try {
-        await dispatch(signupUser({ firstName, lastName, email, password })).unwrap();
-        Alert.alert("Success", "Account created successfully!");
-        router.back();
-      } catch (error) {
-        console.log("Signup error handled by Redux");
-      }
+      signupMutation.mutate(
+        { firstName, lastName, email, password },
+        {
+          onSuccess: () => {
+            Alert.alert("Success", "Account created successfully!");
+            router.back();
+          },
+          onError: (error) => {
+            Alert.alert("Error", error.message || "Registration failed");
+          },
+        }
+      );
     }
   };
 
@@ -77,8 +74,14 @@ export default function RegisterScreen() {
           <Button
             mode="contained"
             onPress={handleRegister}
-            loading={isLoading}
-            disabled={!firstName || !lastName || !email || !password || isLoading}
+            loading={signupMutation.isPending}
+            disabled={
+              !firstName ||
+              !lastName ||
+              !email ||
+              !password ||
+              signupMutation.isPending
+            }
             style={styles.button}
           >
             Create Account

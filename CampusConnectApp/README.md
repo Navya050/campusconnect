@@ -35,6 +35,72 @@ npm run reset-project
 
 This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
+# Tabs Copy - Simplified Campus Connect Screens
+
+This folder contains simplified versions of the Campus Connect app screens that were created as backup copies for future development.
+
+## Overview
+
+These are minimal, placeholder versions of the main app screens that display welcome messages instead of full functionality. They were created to serve as a foundation for future development work.
+
+## Current Structure
+
+### Files Included:
+
+- `_layout.tsx` - Tab navigation layout with 4 tabs
+- `index.tsx` - Home screen (Welcome to Home)
+- `study-space.tsx` - Study screen (Welcome to Study)
+- `campus.tsx` - Campus screen (Welcome to Campus)
+- `profile.tsx` - Profile screen (Welcome to Profile + Logout button)
+
+### Current Functionality:
+
+- **Home Tab**: Displays "Welcome to Home" message in blue color
+- **Study Tab**: Displays "Welcome to Study" message in green color
+- **Campus Tab**: Displays "Welcome to Campus" message in orange color
+- **Profile Tab**: Displays "Welcome to Profile" message in purple color + functional logout button
+
+## Tab Navigation
+
+The `_layout.tsx` file configures a bottom tab navigation with:
+
+- Home (house icon)
+- Study (library icon)
+- Campus (storefront icon)
+- Profile (person icon)
+
+## Profile Screen Special Features
+
+The profile screen includes:
+
+- Welcome message
+- Logout button that shows confirmation dialog
+- Navigation back to login screen on logout
+
+## Usage Notes
+
+- These are simplified placeholder screens
+- All complex functionality has been removed
+- Ready for future development and feature additions
+- Each screen uses React Native Paper components for consistent styling
+- Colors are used to differentiate between different tabs
+
+## Future Development
+
+These screens can be enhanced by:
+
+- Adding actual functionality for each tab
+- Implementing real data and API calls
+- Adding more interactive components
+- Expanding the user interface
+
+## Technical Details
+
+- Built with React Native and Expo Router
+- Uses React Native Paper for UI components
+- Ionicons for tab navigation icons
+- TypeScript for type safety
+
 ## Learn more
 
 To learn more about developing your project with Expo, look at the following resources:

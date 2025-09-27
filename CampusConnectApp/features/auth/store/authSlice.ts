@@ -1,36 +1,60 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { authAPI } from '../api/auth';
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { authAPI } from "../api/auth";
 
 // Async actions
 export const loginUser = createAsyncThunk(
-  'auth/login',
-  async (credentials: { email: string; password: string }, { rejectWithValue }) => {
+  "auth/login",
+  async (
+    credentials: { email: string; password: string },
+    { rejectWithValue }
+  ) => {
     try {
       return await authAPI.login(credentials.email, credentials.password);
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.data || 'Login failed');
+      // Handle different error response formats
+      const errorMessage =
+        error.response?.data?.data ||
+        error.response?.data?.message ||
+        error.message ||
+        "Login failed";
+      return rejectWithValue(errorMessage);
     }
   }
 );
 
 export const signupUser = createAsyncThunk(
-  'auth/signup',
-  async (userData: { firstName: string; lastName: string; email: string; password: string }, { rejectWithValue }) => {
+  "auth/signup",
+  async (
+    userData: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      password: string;
+    },
+    { rejectWithValue }
+  ) => {
     try {
-      return await authAPI.signup(userData);
+      const response = await authAPI.signup(userData);
+      return response;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.data || 'Signup failed');
+      // Handle different error response formats
+      const errorMessage =
+        error.response?.data?.data ||
+        error.response?.data?.message ||
+        error.message ||
+        "Signup failed";
+      return rejectWithValue(errorMessage);
     }
   }
 );
 
-export const logoutUser = createAsyncThunk('auth/logout', async () => {
+export const logoutUser = createAsyncThunk("auth/logout", async () => {
   await authAPI.logout();
 });
 
 // Auth slice
 const authSlice = createSlice({
-  name: 'auth',
+  name: "auth",
   initialState: {
     isAuthenticated: false,
     isLoading: false,
@@ -47,9 +71,10 @@ const authSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(loginUser.fulfilled, (state) => {
+      .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
+        state.error = null;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;

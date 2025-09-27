@@ -1,18 +1,21 @@
-import { View, StyleSheet } from "react-native";
-import { Title, Paragraph, Card } from "react-native-paper";
+import React from "react";
+import { StyleSheet, View } from "react-native";
+import { Card, Paragraph, Title } from "react-native-paper";
 
-export default function ExploreScreen() {
+export const StudySpacePage: React.FC = () => {
   return (
     <View style={styles.container}>
       <Card style={styles.card}>
         <Card.Content>
-          <Title>Explore Campus</Title>
-          <Paragraph>Discover what&lsquo;s happening on campus!</Paragraph>
+          <Title>Explore Study</Title>
+          <Paragraph>
+            Discover what&lsquo;s happening on study groups!
+          </Paragraph>
         </Card.Content>
       </Card>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {

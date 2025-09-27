@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const router = express.Router();
 
 router.post("/signup", (req, res, next) => {
+  console.log("called");
   bcrypt.hash(req.body.password, 10).then((hash) => {
     const user = new User({
       firstName: req.body.firstName,
@@ -22,15 +23,15 @@ router.post("/signup", (req, res, next) => {
         });
       })
       .catch((error) => {
-        if (error == 11000) {
-          res.status(500).json({
+        if (error.code === 11000) {
+          res.status(409).json({
             success: false,
-            data: "user already exists!",
+            data: "User already exists!",
           });
         } else {
           res.status(500).json({
             success: false,
-            data: error,
+            data: error.message || "Signup failed",
           });
         }
       });

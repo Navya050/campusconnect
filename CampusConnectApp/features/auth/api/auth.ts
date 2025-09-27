@@ -1,45 +1,10 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
-import { config } from "../../../shared/config/environment";
+// This file is now deprecated - use shared/hooks/useAuth.ts instead
+// Keeping for backward compatibility, but redirecting to new implementation
 
-const API_URL = config.API_URL;
+import { authAPI } from "../../../shared/hooks/useAuth";
 
-// Simple auth API
-export const authAPI = {
-  async login(email: string, password: string) {
-    console.log("testing");
-    const response = await axios.post(`${API_URL}/user/login`, { email, password });
-    const { token, expiresIn } = response.data;
+// Re-export the new API for backward compatibility
+export { authAPI };
 
-    // Store token
-    await AsyncStorage.setItem("token", token);
-    await AsyncStorage.setItem("tokenExpiry", (Date.now() + expiresIn * 1000).toString());
-
-    return response.data;
-  },
-
-  async signup(userData: { firstName: string; lastName: string; email: string; password: string }) {
-    const response = await axios.post(`${API_URL}/user/signup`, userData);
-    return response.data;
-  },
-
-  async logout() {
-    await AsyncStorage.multiRemove(["token", "tokenExpiry"]);
-  },
-
-  async getToken() {
-    const token = await AsyncStorage.getItem("token");
-    const expiry = await AsyncStorage.getItem("tokenExpiry");
-
-    if (token && expiry && Date.now() < parseInt(expiry)) {
-      return token;
-    }
-
-    await this.logout();
-    return null;
-  },
-
-  async isAuthenticated() {
-    return (await this.getToken()) !== null;
-  }
-};
+// Note: This file should be removed once all references are updated to use the new hooks
+// The new implementation is in shared/hooks/useAuth.ts and uses TanStack Query instead of axios
