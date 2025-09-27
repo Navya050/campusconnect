@@ -50,9 +50,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="campus"
+        name="Market"
         options={{
-          title: "Campus",
+          title: "Market",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "storefront" : "storefront-outline"}
