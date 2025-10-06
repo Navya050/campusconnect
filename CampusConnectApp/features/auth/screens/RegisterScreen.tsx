@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { View, Alert, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { TextInput, Button, Card, Title } from "react-native-paper";
 import { useRouter } from "expo-router";
-import { useSignup } from "../../../shared/hooks/useAuth";
+import { useSignup } from "@/shared/hooks/useAuth";
+import alert from "../../../shared/utils/alert";
 
 export default function RegisterScreen() {
   const [firstName, setFirstName] = useState("");
@@ -19,11 +20,11 @@ export default function RegisterScreen() {
         { firstName, lastName, email, password },
         {
           onSuccess: () => {
-            Alert.alert("Success", "Account created successfully!");
+            alert.alert("Success", "Account created successfully!");
             router.back();
           },
           onError: (error) => {
-            Alert.alert("Error", error.message || "Registration failed");
+            alert.alert("Error", error.message || "Registration failed");
           },
         }
       );
@@ -89,7 +90,7 @@ export default function RegisterScreen() {
 
           <Button
             mode="text"
-            onPress={() => router.back()}
+            onPress={() => router.push("/login")}
             style={styles.textButton}
           >
             Already have an account? Sign In

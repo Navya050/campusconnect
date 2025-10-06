@@ -12,7 +12,12 @@ import { Platform } from "react-native";
 const getApiUrl = (): string => {
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
 
+  // If EXPO_PUBLIC_API_URL is set, use it but handle platform-specific modifications
   if (envUrl) {
+    // On web, replace any IP address with localhost
+    if (Platform.OS === "web") {
+      return envUrl.replace(/http:\/\/[\d.]+:(\d+)/, "http://localhost:$1");
+    }
     return envUrl;
   }
 
@@ -22,7 +27,7 @@ const getApiUrl = (): string => {
   } else {
     // For mobile devices, localhost won't work - need actual IP
     // You can override this by setting EXPO_PUBLIC_API_URL in .env
-    return "http://192.168.0.177:3406/api";
+    return "http://192.168.86.41:3406/api";
   }
 };
 

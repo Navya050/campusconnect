@@ -9,7 +9,7 @@ export const loginUser = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      return await authAPI.login(credentials.email, credentials.password);
+      return await authAPI.login(credentials);
     } catch (error: any) {
       // Handle different error response formats
       const errorMessage =

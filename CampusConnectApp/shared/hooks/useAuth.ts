@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { config } from "../config/environment";
+import storage from "../utils/storage";
+import { config } from "@/shared/config";
 
 const API_URL = config.API_URL;
 
@@ -52,8 +52,8 @@ const authAPI = {
     const { token, expiresIn } = data;
 
     // Store token
-    await AsyncStorage.setItem("token", token);
-    await AsyncStorage.setItem(
+    await storage.setItem("token", token);
+    await storage.setItem(
       "tokenExpiry",
       (Date.now() + expiresIn * 1000).toString()
     );
@@ -78,12 +78,12 @@ const authAPI = {
   },
 
   async logout(): Promise<void> {
-    await AsyncStorage.multiRemove(["token", "tokenExpiry"]);
+    await storage.multiRemove(["token", "tokenExpiry"]);
   },
 
   async getToken(): Promise<string | null> {
-    const token = await AsyncStorage.getItem("token");
-    const expiry = await AsyncStorage.getItem("tokenExpiry");
+    const token = await storage.getItem("token");
+    const expiry = await storage.getItem("tokenExpiry");
 
     if (token && expiry && Date.now() < parseInt(expiry)) {
       return token;

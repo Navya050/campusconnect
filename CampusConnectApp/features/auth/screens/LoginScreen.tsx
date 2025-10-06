@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { View, Alert, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { TextInput, Button, Card, Title, useTheme } from "react-native-paper";
 import { useRouter } from "expo-router";
-import { useLogin } from "../../../shared/hooks/useAuth";
+import { useLogin } from "@/shared/hooks/useAuth";
+import alert from "../../../shared/utils/alert";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -18,7 +19,7 @@ export default function LoginScreen() {
         { email, password },
         {
           onSuccess: () => {
-            Alert.alert("Success", "Login successful!", [
+            alert.alert("Success", "Login successful!", [
               {
                 text: "OK",
                 onPress: () => router.replace("/(tabs)"),
@@ -26,7 +27,7 @@ export default function LoginScreen() {
             ]);
           },
           onError: (error) => {
-            Alert.alert("Error", error.message || "Login failed");
+            alert.alert("Error", error.message || "Login failed");
           },
         }
       );

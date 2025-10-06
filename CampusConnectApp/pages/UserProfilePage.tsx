@@ -1,15 +1,16 @@
 import React from "react";
-import { View, StyleSheet, Alert } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { Title, Button } from "react-native-paper";
 import { useRouter } from "expo-router";
-import { useLogout } from "../shared/hooks/useAuth";
+import { useLogout } from "@/shared/hooks/useAuth";
+import alert from "../shared/utils/alert";
 
 export const UserProfilePage: React.FC = () => {
   const router = useRouter();
   const logoutMutation = useLogout();
 
   const handleLogout = async () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
+    alert.alert("Logout", "Are you sure you want to logout?", [
       {
         text: "Cancel",
         style: "cancel",
@@ -24,7 +25,7 @@ export const UserProfilePage: React.FC = () => {
             },
             onError: (error) => {
               console.error("Error during logout:", error);
-              Alert.alert("Error", "Failed to logout. Please try again.");
+              alert.alert("Error", "Failed to logout. Please try again.");
             },
           });
         },
