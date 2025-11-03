@@ -1,81 +1,117 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { config } from "@/shared/config";
+import storage from "@/shared/utils/storage";
+
+const API_URL = config.API_URL;
 
 // Types
 interface StudyGroup {
-  id: string;
+  _id: string;
   name: string;
-  subject: string;
-  courseCode: string;
-  level: "undergraduate" | "graduate";
-  type: "public" | "private";
-  members: number;
-  maxMembers: number;
   description: string;
-  tags: string[];
-  lastActivity: string;
-  nextMeeting: string;
+  category: string;
+  educationLevel: string;
+  graduationYear: string;
+  studentCount: number;
+  maxCapacity: number;
+  isFull: boolean;
+  isJoined: boolean;
+  createdAt: string;
+}
+
+interface GroupFilters {
+  category?: string;
+  educationLevel?: string;
+  graduationYear?: string;
+  userId?: string;
 }
 
 // API functions (business logic separated from UI)
 const studyGroupsAPI = {
-  getAll: async (): Promise<StudyGroup[]> => {
-    // Mock data - replace with actual API call
-    return [
+  getAll: async (filters: GroupFilters = {}): Promise<StudyGroup[]> => {
+    const token = await storage.getItem("token");
+    const queryParams = new URLSearchParams();
+
+    if (filters.category) queryParams.append("category", filters.category);
+    if (filters.educationLevel)
+      queryParams.append("educationLevel", filters.educationLevel);
+    if (filters.graduationYear)
+      queryParams.append("graduationYear", filters.graduationYear);
+    if (filters.userId) queryParams.append("userId", filters.userId);
+
+    const response = await fetch(
+      `${API_URL}/groups?${queryParams.toString()}`,
       {
-        id: "1",
-        name: "Data Structures & Algorithms",
-        subject: "Computer Science",
-        courseCode: "CS201",
-        level: "undergraduate",
-        type: "public",
-        members: 12,
-        maxMembers: 15,
-        description:
-          "Weekly study sessions for DS&A concepts and coding practice",
-        tags: ["Programming", "Algorithms", "Problem Solving"],
-        lastActivity: "2 hours ago",
-        nextMeeting: "Tomorrow 3:00 PM",
-      },
-      {
-        id: "2",
-        name: "Calculus Study Group",
-        subject: "Mathematics",
-        courseCode: "MATH101",
-        level: "undergraduate",
-        type: "public",
-        members: 8,
-        maxMembers: 10,
-        description: "Collaborative learning for Calculus I concepts",
-        tags: ["Mathematics", "Calculus", "Problem Sets"],
-        lastActivity: "5 hours ago",
-        nextMeeting: "Friday 2:00 PM",
-      },
-    ];
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch groups");
+    }
+
+    const result = await response.json();
+    return result.data;
   },
 
   getById: async (id: string): Promise<StudyGroup> => {
-    const groups = await studyGroupsAPI.getAll();
-    const group = groups.find((g) => g.id === id);
-    if (!group) throw new Error("Study group not found");
-    return group;
+    const token = await storage.getItem("token");
+    const response = await fetch(`${API_URL}/groups/${id}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Study group not found");
+    }
+
+    const result = await response.json();
+    return result.data;
   },
 
-  create: async (data: Omit<StudyGroup, "id">): Promise<StudyGroup> => {
-    // Mock implementation - replace with actual API call
-    return {
-      ...data,
-      id: Date.now().toString(),
-    };
+  join: async (groupId: string, userId: string): Promise<void> => {
+    const token = await storage.getItem("token");
+    const response = await fetch(`${API_URL}/groups/${groupId}/join`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.data || "Failed to join group");
+    }
+
+    return response.json();
   },
 
-  join: async (groupId: string): Promise<void> => {
-    // Mock implementation - replace with actual API call
-    console.log(`Joining group ${groupId}`);
-  },
+  leave: async (groupId: string, userId: string): Promise<void> => {
+    const token = await storage.getItem("token");
+    const response = await fetch(`${API_URL}/groups/${groupId}/leave`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: JSON.stringify({ userId }),
+    });
 
-  leave: async (groupId: string): Promise<void> => {
-    // Mock implementation - replace with actual API call
-    console.log(`Leaving group ${groupId}`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.data || "Failed to leave group");
+    }
+
+    return response.json();
   },
 };
 
@@ -89,10 +125,10 @@ const studyGroupsKeys = {
 };
 
 // Custom hooks
-export const useStudyGroups = (filters?: string) => {
+export const useStudyGroups = (filters: GroupFilters = {}) => {
   return useQuery({
-    queryKey: studyGroupsKeys.list(filters || ""),
-    queryFn: studyGroupsAPI.getAll,
+    queryKey: studyGroupsKeys.list(JSON.stringify(filters)),
+    queryFn: () => studyGroupsAPI.getAll(filters),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
@@ -105,22 +141,12 @@ export const useStudyGroup = (id: string) => {
   });
 };
 
-export const useCreateStudyGroup = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: studyGroupsAPI.create,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: studyGroupsKeys.lists() });
-    },
-  });
-};
-
 export const useJoinStudyGroup = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: studyGroupsAPI.join,
+    mutationFn: ({ groupId, userId }: { groupId: string; userId: string }) =>
+      studyGroupsAPI.join(groupId, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: studyGroupsKeys.lists() });
     },
@@ -131,7 +157,8 @@ export const useLeaveStudyGroup = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: studyGroupsAPI.leave,
+    mutationFn: ({ groupId, userId }: { groupId: any; userId: string }) =>
+      studyGroupsAPI.leave(groupId, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: studyGroupsKeys.lists() });
     },
@@ -139,4 +166,4 @@ export const useLeaveStudyGroup = () => {
 };
 
 // Export types
-export type { StudyGroup };
+export type { StudyGroup, GroupFilters };

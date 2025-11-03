@@ -20,6 +20,18 @@ const userSchema = mongoose.Schema({
     type: String,
     required: true,
   },
+  graduationYear: {
+    type: String,
+    required: true,
+  },
+  educationLevel: {
+    type: String,
+    required: true,
+  },
+  category: {
+    type: String,
+    required: true,
+  },
 });
 
 const Users = mongoose.model("User", userSchema);

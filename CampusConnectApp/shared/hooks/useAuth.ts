@@ -15,6 +15,9 @@ interface SignupData {
   lastName: string;
   email: string;
   password: string;
+  educationLevel: string;
+  category: string;
+  graduationYear: string;
 }
 
 interface AuthResponse {
@@ -27,12 +30,6 @@ interface AuthResponse {
 const authAPI = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     console.log("testing", API_URL);
-
-    // Test posts endpoint
-    const postsResponse = await fetch(`${API_URL}/posts`);
-    const posts = await postsResponse.json();
-    console.log("posts: ", posts);
-
     // Login request
     const response = await fetch(`${API_URL}/user/login`, {
       method: "POST",
@@ -49,7 +46,7 @@ const authAPI = {
     const data = await response.json();
     console.log("resp:", data);
 
-    const { token, expiresIn } = data;
+    const { token, expiresIn, user } = data;
 
     // Store token
     await storage.setItem("token", token);
@@ -58,10 +55,13 @@ const authAPI = {
       (Date.now() + expiresIn * 1000).toString()
     );
 
+    await storage.setItem("userData", JSON.stringify(user));
+
     return data;
   },
 
   async signup(userData: SignupData): Promise<AuthResponse> {
+    console.log("userData: ", userData);
     const response = await fetch(`${API_URL}/user/signup`, {
       method: "POST",
       headers: {
@@ -78,7 +78,7 @@ const authAPI = {
   },
 
   async logout(): Promise<void> {
-    await storage.multiRemove(["token", "tokenExpiry"]);
+    await storage.multiRemove(["token", "tokenExpiry", "userData"]);
   },
 
   async getToken(): Promise<string | null> {

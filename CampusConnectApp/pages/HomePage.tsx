@@ -1,7 +1,7 @@
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -9,10 +9,23 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useIsAuthenticated } from "@/shared/hooks/useAuth";
 
 export const HomePage: React.FC = () => {
-  const user: any = { user: "tester" };
-  const isAuthenticated = true;
+  const { data: isAuthenticated, isLoading } = useIsAuthenticated();
+  const user: any = null; // Will be implemented when user data is available
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, isLoading]);
+
+  // Show loading or redirect if not authenticated
+  if (isLoading || !isAuthenticated) {
+    return null;
+  }
 
   const features = [
     {
@@ -32,7 +45,6 @@ export const HomePage: React.FC = () => {
       route: "/(tabs)/Market",
     },
   ];
-
 
   return (
     <ScrollView style={styles.container}>
@@ -55,8 +67,6 @@ export const HomePage: React.FC = () => {
           </TouchableOpacity>
         )}
       </View>
-
-
 
       <View style={styles.featuresContainer}>
         <Text style={styles.sectionTitle}>Explore Spaces</Text>
@@ -89,7 +99,6 @@ export const HomePage: React.FC = () => {
         ))}
       </View>
 
-      
       <View style={styles.aboutContainer}>
         <Text style={styles.sectionTitle}>About CampusConnect</Text>
         <View style={styles.aboutCard}>

@@ -1,14 +1,42 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   View,
   ScrollView,
   TouchableOpacity,
   Text,
+  Alert,
 } from "react-native";
-import { Card, Title, Paragraph, Button, Surface } from "react-native-paper";
+import {
+  Card,
+  Title,
+  Paragraph,
+  Button,
+  Surface,
+  ActivityIndicator,
+  Chip,
+} from "react-native-paper";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useIsAuthenticated } from "@/shared/hooks/useAuth";
+import {
+  useStudyGroups,
+  useJoinStudyGroup,
+  StudyGroup,
+  useLeaveStudyGroup,
+} from "@/shared/hooks/useStudyGroups";
 import { Colors } from "../constants/theme";
+import storage from "@/shared/utils/storage";
+
+interface User {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  graduationYear: string;
+  educationLevel: string;
+  category: string;
+}
 
 interface StudyLevel {
   id: string;
@@ -18,29 +46,196 @@ interface StudyLevel {
   color: string;
 }
 
-const studyLevels: StudyLevel[] = [
-  {
-    id: "undergraduate",
-    title: "Undergraduate",
-    description: "Bachelor's degree programs and courses",
-    icon: "school",
-    color: "#4CAF50",
-  },
-  {
-    id: "graduate",
-    title: "Graduate",
-    description: "Master's and PhD programs",
-    icon: "psychology",
-    color: "#2196F3",
-  },
-];
+const getStudyLevels = (userEducationLevel: string): StudyLevel[] => {
+  if (userEducationLevel === "UG") {
+    return [
+      {
+        id: "UG",
+        title: "Undergraduate",
+        description: "Bachelor's degree programs and courses",
+        icon: "school",
+        color: "#4CAF50",
+      },
+    ];
+  } else if (userEducationLevel === "PG") {
+    return [
+      {
+        id: "PG",
+        title: "Postgraduate",
+        description: "Master's and PhD programs",
+        icon: "psychology",
+        color: "#2196F3",
+      },
+    ];
+  }
+  return [];
+};
 
 export const StudySpacePage: React.FC = () => {
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<StudyGroup | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const router = useRouter();
+  const { data: isAuthenticated, isLoading } = useIsAuthenticated();
+
+  const joinGroupMutation = useJoinStudyGroup();
+  const leaveGroupMutation = useLeaveStudyGroup();
+
+  // Get user data from storage
+  useEffect(() => {
+    const getUserData = async () => {
+      try {
+        const userData = await storage.getItem("userData");
+        console.log("Raw userData from storage:", userData);
+        console.log("Type of userData:", typeof userData);
+
+        if (userData) {
+          let parsedUser;
+
+          if (typeof userData === "string") {
+            try {
+              parsedUser = JSON.parse(userData);
+            } catch (parseError) {
+              console.error("Error parsing userData JSON:", parseError);
+              console.log("userData content:", userData);
+              return;
+            }
+          } else if (typeof userData === "object" && userData !== null) {
+            parsedUser = userData;
+          } else {
+            console.error("Invalid userData type:", typeof userData);
+            return;
+          }
+
+          console.log("Parsed user:", parsedUser);
+          setUser(parsedUser);
+          // Auto-select the user's education level
+          if (parsedUser.educationLevel) {
+            setSelectedLevel(parsedUser.educationLevel);
+          }
+        }
+      } catch (error) {
+        console.error("Error getting user data:", error);
+      }
+    };
+    getUserData();
+  }, []);
+
+  // Fetch groups based on user's education level
+  const {
+    data: groups,
+    isLoading: groupsLoading,
+    error: groupsError,
+  } = useStudyGroups({
+    educationLevel: user?.educationLevel,
+    category: user?.category,
+    graduationYear: user?.graduationYear,
+    userId: user?._id,
+  });
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, isLoading]);
 
   const handleLevelSelect = (levelId: string) => {
     setSelectedLevel(levelId);
   };
+
+  const handleJoinGroup = async (group: StudyGroup) => {
+    if (!user) return;
+
+    try {
+      await joinGroupMutation.mutateAsync({
+        groupId: group._id,
+        userId: user._id,
+      });
+      Alert.alert("Success", `Successfully joined ${group.name}!`);
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to join group");
+    }
+  };
+
+  const handleLeaveGroup = async () => {
+    if (!user) return;
+
+    try {
+      await leaveGroupMutation.mutateAsync({
+        groupId: selectedGroup?._id,
+        userId: user._id,
+      });
+      Alert.alert("Success", `Successfully left ${selectedGroup?.name}!`);
+      setSelectedGroup(null);
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to leave group");
+    }
+  };
+
+  const handleViewGroup = (group: StudyGroup) => {
+    setSelectedGroup(group);
+  };
+
+  // Show loading or redirect if not authenticated
+  if (isLoading || !isAuthenticated || !user) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={Colors.light.tint} />
+      </View>
+    );
+  }
+
+  const studyLevels = getStudyLevels(user.educationLevel);
+
+  const renderGroupCard = (group: StudyGroup) => (
+    <Card key={group._id} style={styles.groupCard}>
+      <Card.Content>
+        <View style={styles.groupHeader}>
+          <Title style={styles.groupTitle}>{group.name}</Title>
+          <View style={styles.groupStats}>
+            {group.isJoined && (
+              <Chip mode="flat" style={styles.joinedChip} compact>
+                Joined
+              </Chip>
+            )}
+          </View>
+        </View>
+
+        <Paragraph style={styles.groupDescription}>
+          {group.description}
+        </Paragraph>
+
+        <View style={styles.groupDetails}>
+          <Text style={styles.groupDetailText}>Category: {group.category}</Text>
+          <Text style={styles.groupDetailText}>
+            Year: {group.graduationYear}
+          </Text>
+        </View>
+
+        <View style={styles.groupActions}>
+          {group.isJoined ? (
+            <Button
+              mode="contained"
+              onPress={() => handleViewGroup(group)}
+              style={styles.viewButton}
+            >
+              View Group
+            </Button>
+          ) : (
+            <Button
+              mode="contained"
+              onPress={() => handleJoinGroup(group)}
+              disabled={group.isFull || joinGroupMutation.isPending}
+              style={styles.joinButton}
+            >
+              {group.isFull ? "Full" : "Join Group"}
+            </Button>
+          )}
+        </View>
+      </Card.Content>
+    </Card>
+  );
 
   const renderLevelCard = (level: StudyLevel) => (
     <TouchableOpacity
@@ -70,6 +265,38 @@ export const StudySpacePage: React.FC = () => {
     const level = studyLevels.find((l) => l.id === selectedLevel);
     if (!level) return null;
 
+    if (groupsLoading) {
+      return (
+        <View style={[styles.container, styles.centered]}>
+          <ActivityIndicator size="large" color={level.color} />
+          <Text style={styles.loadingText}>Loading study groups...</Text>
+        </View>
+      );
+    }
+
+    if (groupsError) {
+      return (
+        <View style={styles.screenContainer}>
+          <Card style={styles.errorCard}>
+            <Card.Content>
+              <Title style={styles.errorTitle}>Error Loading Groups</Title>
+              <Paragraph>
+                Failed to load study groups. Please try again.
+              </Paragraph>
+            </Card.Content>
+          </Card>
+          <Button
+            mode="outlined"
+            onPress={() => setSelectedLevel(null)}
+            style={styles.backButton}
+            icon="arrow-left"
+          >
+            Back to Study Levels
+          </Button>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.screenContainer}>
         <Card style={styles.screenCard}>
@@ -77,28 +304,118 @@ export const StudySpacePage: React.FC = () => {
             <View style={styles.screenHeader}>
               <MaterialIcons name={level.icon} size={60} color={level.color} />
               <Title style={[styles.screenTitle, { color: level.color }]}>
-                {level.title} Screen
+                {level.title} Study Groups
               </Title>
             </View>
             <Paragraph style={styles.screenDescription}>
-              Welcome to the {level.title} study space. This is where
-              you&apos;ll find all resources and tools specifically designed for{" "}
-              {level.title.toLowerCase()} students.
+              Join study groups for your {level.title.toLowerCase()} program in{" "}
+              {user.category}.
             </Paragraph>
           </Card.Content>
         </Card>
+
+        <View style={styles.groupsContainer}>
+          {groups && groups.length > 0 ? (
+            groups.map(renderGroupCard)
+          ) : (
+            <Card style={styles.emptyCard}>
+              <Card.Content>
+                <Title style={styles.emptyTitle}>No Groups Available</Title>
+                <Paragraph>
+                  No study groups found for your program. Check back later or
+                  contact your administrator.
+                </Paragraph>
+              </Card.Content>
+            </Card>
+          )}
+        </View>
 
         <Button
           mode="outlined"
           onPress={() => setSelectedLevel(null)}
           style={styles.backButton}
-          icon="arrow-back"
+          icon="arrow-left"
         >
           Back to Study Levels
         </Button>
       </View>
     );
   };
+
+  const renderGroupView = () => {
+    if (!selectedGroup) return null;
+
+    return (
+      <View style={styles.container}>
+        <ScrollView>
+          <Card style={styles.screenCard}>
+            <Card.Content>
+              <View style={styles.screenHeader}>
+                <MaterialIcons
+                  name="group"
+                  size={60}
+                  color={Colors.light.tint}
+                />
+                <Title
+                  style={[styles.screenTitle, { color: Colors.light.tint }]}
+                >
+                  {selectedGroup.name}
+                </Title>
+              </View>
+
+              <Paragraph style={styles.screenDescription}>
+                Connect and chat with your study group members!
+              </Paragraph>
+            </Card.Content>
+          </Card>
+
+          {/* Chat Content */}
+          <View style={styles.chatContainer}>
+            <View style={styles.comingSoonContainer}>
+              <MaterialIcons
+                name="chat-bubble-outline"
+                size={80}
+                color={Colors.light.icon}
+              />
+              <Title style={styles.comingSoonTitle}>Chat Feature</Title>
+              <Paragraph style={styles.comingSoonDescription}>
+                Chat feature will be available soon! Stay tuned for real-time
+                messaging with your study group members.
+              </Paragraph>
+            </View>
+          </View>
+
+          <View style={styles.groupActionsContainer}>
+            <View style={styles.groupActions}>
+              <Button
+                mode="outlined"
+                onPress={() => setSelectedGroup(null)}
+                style={styles.backToGroupsButton}
+                icon="arrow-left"
+              >
+                Back to Groups
+              </Button>
+
+              <Button
+                mode="outlined"
+                onPress={() => handleLeaveGroup()}
+                style={styles.leaveGroupButton}
+                icon="exit-to-app"
+              >
+                Leave Group
+              </Button>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  if (selectedGroup) {
+    return (
+      <ScrollView style={styles.container}>{renderGroupView()}</ScrollView>
+    );
+  }
 
   if (selectedLevel) {
     return (
@@ -116,7 +433,9 @@ export const StudySpacePage: React.FC = () => {
         />
         <Title style={styles.headerTitle}>Study Space</Title>
         <Paragraph style={styles.headerSubtitle}>
-          Choose your academic level to access tailored study resources
+          Welcome {user.firstName}! Access your{" "}
+          {user.educationLevel === "UG" ? "Undergraduate" : "Postgraduate"}{" "}
+          study groups
         </Paragraph>
       </View>
 
@@ -132,13 +451,17 @@ export const StudySpacePage: React.FC = () => {
           </View>
           <View style={styles.featuresList}>
             <Text style={styles.featureItem}>
-              • Access to study groups and materials
+              • Access to study groups and chat
             </Text>
             <Text style={styles.featureItem}>
               • Connect with peers in your program
             </Text>
-            <Text style={styles.featureItem}>• Share notes and resources</Text>
-            <Text style={styles.featureItem}>• Schedule study sessions</Text>
+            <Text style={styles.featureItem}>
+              • Real-time messaging (coming soon)
+            </Text>
+            <Text style={styles.featureItem}>
+              • Collaborate on study materials
+            </Text>
           </View>
         </Card.Content>
       </Card>
@@ -150,6 +473,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8f9fa",
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     alignItems: "center",
@@ -230,6 +557,95 @@ const styles = StyleSheet.create({
   backButton: {
     marginTop: 16,
   },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: Colors.light.icon,
+  },
+  errorCard: {
+    marginBottom: 20,
+    backgroundColor: "white",
+  },
+  errorTitle: {
+    color: "#d32f2f",
+    textAlign: "center",
+  },
+  groupsContainer: {
+    gap: 12,
+  },
+  groupCard: {
+    backgroundColor: "white",
+    marginBottom: 12,
+  },
+  groupHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  groupTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.light.text,
+    flex: 1,
+    marginRight: 8,
+  },
+  groupStats: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  joinedChip: {
+    backgroundColor: "#30d830ff",
+  },
+  groupDescription: {
+    fontSize: 14,
+    color: Colors.light.icon,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  groupDetails: {
+    marginBottom: 16,
+  },
+  groupDetailText: {
+    fontSize: 12,
+    color: Colors.light.icon,
+    marginBottom: 4,
+  },
+  groupActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+  },
+  groupActionsContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: "white",
+    marginTop: 16,
+  },
+  backToGroupsButton: {
+    flex: 1,
+    marginRight: 8,
+  },
+  leaveGroupButton: {
+    flex: 1,
+    marginLeft: 8,
+    backgroundColor: "#d32f2f",
+  },
+  joinButton: {
+    backgroundColor: Colors.light.tint,
+  },
+  viewButton: {
+    backgroundColor: "#4CAF50",
+  },
+  emptyCard: {
+    backgroundColor: "white",
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    textAlign: "center",
+    color: Colors.light.icon,
+  },
   infoCard: {
     margin: 16,
     backgroundColor: "white",
@@ -253,5 +669,32 @@ const styles = StyleSheet.create({
     color: Colors.light.icon,
     marginBottom: 6,
     lineHeight: 20,
+  },
+  // Chat styles
+  chatContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  comingSoonContainer: {
+    alignItems: "center",
+    padding: 40,
+    backgroundColor: "white",
+    margin: 16,
+    borderRadius: 12,
+    marginTop: 20,
+  },
+  comingSoonTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: Colors.light.text,
+    marginTop: 16,
+    textAlign: "center",
+  },
+  comingSoonDescription: {
+    fontSize: 16,
+    color: Colors.light.icon,
+    textAlign: "center",
+    marginTop: 12,
+    lineHeight: 24,
   },
 });

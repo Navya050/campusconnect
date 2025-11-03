@@ -4,6 +4,7 @@ const bodyParser = require("body-parser");
 const Posts = require("./models/post");
 const postRoutes = require("./routes/post");
 const userRoutes = require("./routes/user");
+const groupRoutes = require("./routes/group");
 require("dotenv").config();
 
 const app = express();
@@ -20,7 +21,8 @@ app.use((req, res, next) => {
   );
   next();
 });
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 mongoose
   .connect(process.env.MONGODB_KEY)
@@ -31,10 +33,8 @@ mongoose
     console.log(error);
   });
 
-
-
 app.use("/api/posts", postRoutes);
 app.use("/api/user", userRoutes);
-
+app.use("/api/groups", groupRoutes);
 
 module.exports = app;

@@ -30,6 +30,9 @@ export const signupUser = createAsyncThunk(
       lastName: string;
       email: string;
       password: string;
+      graduationYear: string;
+      category: string;
+      educationLevel: string;
     },
     { rejectWithValue }
   ) => {
