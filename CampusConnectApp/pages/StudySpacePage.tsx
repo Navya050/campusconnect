@@ -15,6 +15,8 @@ import {
   Surface,
   ActivityIndicator,
   Chip,
+  Menu,
+  IconButton,
 } from "react-native-paper";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -27,6 +29,7 @@ import {
 } from "@/shared/hooks/useStudyGroups";
 import { Colors } from "../constants/theme";
 import storage from "@/shared/utils/storage";
+import { Chat } from "@/components/chat/Chat";
 
 interface User {
   _id: string;
@@ -75,6 +78,7 @@ export const StudySpacePage: React.FC = () => {
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<StudyGroup | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [menuVisible, setMenuVisible] = useState(false);
   const router = useRouter();
   const { data: isAuthenticated, isLoading } = useIsAuthenticated();
 
@@ -347,74 +351,54 @@ export const StudySpacePage: React.FC = () => {
 
     return (
       <View style={styles.container}>
-        <ScrollView>
-          <Card style={styles.screenCard}>
-            <Card.Content>
-              <View style={styles.screenHeader}>
-                <MaterialIcons
-                  name="group"
-                  size={60}
-                  color={Colors.light.tint}
+        {/* Chat Header */}
+        <Surface style={styles.chatHeader} elevation={2}>
+          <View style={styles.chatHeaderContent}>
+            <IconButton
+              icon="arrow-left"
+              size={24}
+              onPress={() => setSelectedGroup(null)}
+              style={styles.headerBackButton}
+            />
+            <View style={styles.chatHeaderInfo}>
+              <Title style={styles.chatHeaderTitle}>{selectedGroup.name}</Title>
+              <Text style={styles.chatHeaderSubtitle}>
+                {selectedGroup.category} • {selectedGroup.graduationYear}
+              </Text>
+            </View>
+            <Menu
+              visible={menuVisible}
+              onDismiss={() => setMenuVisible(false)}
+              anchor={
+                <IconButton
+                  icon="dots-vertical"
+                  size={24}
+                  onPress={() => setMenuVisible(true)}
                 />
-                <Title
-                  style={[styles.screenTitle, { color: Colors.light.tint }]}
-                >
-                  {selectedGroup.name}
-                </Title>
-              </View>
-
-              <Paragraph style={styles.screenDescription}>
-                Connect and chat with your study group members!
-              </Paragraph>
-            </Card.Content>
-          </Card>
-
-          {/* Chat Content */}
-          <View style={styles.chatContainer}>
-            <View style={styles.comingSoonContainer}>
-              <MaterialIcons
-                name="chat-bubble-outline"
-                size={80}
-                color={Colors.light.icon}
+              }
+            >
+              <Menu.Item
+                onPress={() => {
+                  setMenuVisible(false);
+                  handleLeaveGroup();
+                }}
+                title="Leave Group"
+                leadingIcon="exit-to-app"
               />
-              <Title style={styles.comingSoonTitle}>Chat Feature</Title>
-              <Paragraph style={styles.comingSoonDescription}>
-                Chat feature will be available soon! Stay tuned for real-time
-                messaging with your study group members.
-              </Paragraph>
-            </View>
+            </Menu>
           </View>
+        </Surface>
 
-          <View style={styles.groupActionsContainer}>
-            <View style={styles.groupActions}>
-              <Button
-                mode="outlined"
-                onPress={() => setSelectedGroup(null)}
-                style={styles.backToGroupsButton}
-                icon="arrow-left"
-              >
-                Back to Groups
-              </Button>
-
-              <Button
-                mode="outlined"
-                onPress={() => handleLeaveGroup()}
-                style={styles.leaveGroupButton}
-                icon="exit-to-app"
-              >
-                Leave Group
-              </Button>
-            </View>
-          </View>
-        </ScrollView>
+        {/* Chat Content */}
+        <View style={styles.chatContainer}>
+          <Chat groupId={selectedGroup._id} currentUserId={user._id} />
+        </View>
       </View>
     );
   };
 
   if (selectedGroup) {
-    return (
-      <ScrollView style={styles.container}>{renderGroupView()}</ScrollView>
-    );
+    return renderGroupView();
   }
 
   if (selectedLevel) {
@@ -457,7 +441,7 @@ export const StudySpacePage: React.FC = () => {
               • Connect with peers in your program
             </Text>
             <Text style={styles.featureItem}>
-              • Real-time messaging (coming soon)
+              • Real-time messaging with Socket.IO
             </Text>
             <Text style={styles.featureItem}>
               • Collaborate on study materials
@@ -673,7 +657,32 @@ const styles = StyleSheet.create({
   // Chat styles
   chatContainer: {
     flex: 1,
-    paddingHorizontal: 16,
+  },
+  chatHeader: {
+    backgroundColor: "white",
+    paddingVertical: 8,
+  },
+  chatHeaderContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+  },
+  chatHeaderInfo: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  chatHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.light.text,
+  },
+  chatHeaderSubtitle: {
+    fontSize: 12,
+    color: Colors.light.icon,
+    marginTop: 2,
+  },
+  headerBackButton: {
+    margin: 0,
   },
   comingSoonContainer: {
     alignItems: "center",

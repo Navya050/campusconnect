@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import storage from "../utils/storage";
 import { config } from "@/shared/config";
+import socketService from "../services/socketService";
 
 const API_URL = config.API_URL;
 
@@ -78,6 +79,8 @@ const authAPI = {
   },
 
   async logout(): Promise<void> {
+    // Disconnect socket before clearing storage
+    socketService.disconnect();
     await storage.multiRemove(["token", "tokenExpiry", "userData"]);
   },
 
