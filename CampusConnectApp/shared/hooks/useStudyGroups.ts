@@ -58,6 +58,38 @@ const studyGroupsAPI = {
     return result.data;
   },
 
+  getAllOtherGroups: async (
+    filters: GroupFilters = {}
+  ): Promise<StudyGroup[]> => {
+    const token = await storage.getItem("token");
+    const queryParams = new URLSearchParams();
+
+    if (filters.category) queryParams.append("category", filters.category);
+    if (filters.educationLevel)
+      queryParams.append("educationLevel", filters.educationLevel);
+    if (filters.graduationYear)
+      queryParams.append("graduationYear", filters.graduationYear);
+    if (filters.userId) queryParams.append("userId", filters.userId);
+
+    const response = await fetch(
+      `${API_URL}/groups/get-all-groups?${queryParams.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch other groups");
+    }
+
+    const result = await response.json();
+    return result.data;
+  },
+
   getById: async (id: string): Promise<StudyGroup> => {
     const token = await storage.getItem("token");
     const response = await fetch(`${API_URL}/groups/${id}`, {
@@ -162,6 +194,14 @@ export const useLeaveStudyGroup = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: studyGroupsKeys.lists() });
     },
+  });
+};
+
+export const useAllOtherGroups = (filters: GroupFilters = {}) => {
+  return useQuery({
+    queryKey: studyGroupsKeys.list(JSON.stringify({ ...filters, other: true })),
+    queryFn: () => studyGroupsAPI.getAllOtherGroups(filters),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
 

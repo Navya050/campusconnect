@@ -77,6 +77,8 @@ class SocketService {
         this.socket.on("connect", () => {
           clearTimeout(timeout);
           console.log("✅ Successfully connected to server");
+          console.log("🔌 Socket ID:", this.socket?.id); // Add this
+          console.log("🔌 Socket connected?", this.socket?.connected);
           resolve();
         });
 
@@ -130,6 +132,7 @@ class SocketService {
     }
 
     this.currentGroupId = groupId;
+    console.log("📥 Joining group:", groupId); // Add this log
     this.socket?.emit("join-group", groupId);
   }
 
@@ -147,6 +150,7 @@ class SocketService {
       throw new Error("Socket not connected");
     }
 
+    console.log("📤 Sending message to group:", groupId); // Add this log
     this.socket.emit("send-message", {
       groupId,
       message,
@@ -189,7 +193,27 @@ class SocketService {
 
   // Event listeners
   onNewMessage(callback: (message: ChatMessage) => void): void {
-    this.socket?.on("new-message", callback);
+    if (!this.socket) {
+      console.error("❌ Socket not initialized!");
+      return;
+    }
+
+    if (!this.socket.connected) {
+      console.error("❌ Socket not connected!");
+      return;
+    }
+
+    console.log("👂 Setting up listener for 'new-message' event");
+    console.log("🔌 Socket connected?", this.socket.connected);
+    console.log("🔌 Socket ID:", this.socket.id);
+
+    this.socket.off("new-message");
+
+    // Test listener
+    this.socket.on("new-message", (data) => {
+      console.log("📨📨📨 RAW EVENT RECEIVED:", data);
+      callback(data);
+    });
   }
 
   onUserJoined(

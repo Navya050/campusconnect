@@ -30,7 +30,6 @@ interface SendMediaData {
 interface ChatPagination {
   page: number;
   limit: number;
-  hasMore: boolean;
 }
 
 // API functions
@@ -41,16 +40,13 @@ const chatAPI = {
     limit = 50
   ): Promise<{ data: ChatMessage[]; pagination: ChatPagination }> => {
     const token = await storage.getItem("token");
-    const response = await fetch(
-      `${API_URL}/chat/${groupId}/messages?page=${page}&limit=${limit}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      }
-    );
+    const response = await fetch(`${API_URL}/chat/${groupId}/messages`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
 
     if (!response.ok) {
       throw new Error("Failed to fetch messages");
@@ -258,9 +254,14 @@ export const useChat = (groupId: string, currentUserId?: string) => {
     const connectAndJoin = async () => {
       try {
         await socketService.connect();
+        console.log("✅ Socket connected");
         await socketService.joinGroup(groupId);
+        console.log("✅ Joined group:", groupId);
         setIsConnected(true);
         setError(null);
+
+        // Set up event listeners after successful connection
+        setupEventListeners();
       } catch (err) {
         console.error("Failed to connect to chat:", err);
         setError("Failed to connect to chat");
@@ -268,11 +269,12 @@ export const useChat = (groupId: string, currentUserId?: string) => {
       }
     };
 
-    connectAndJoin();
-
     // Event handlers
     const handleNewMessage = (message: ChatMessage) => {
+      console.log("🎉🎉🎉 NEW MESSAGE RECEIVED ON CLIENT:", message);
+      console.log("Current messages count:", messages.length);
       setMessages((prev) => {
+        console.log("Previous messages:", prev.length);
         // Check if this is a real message replacing an optimistic one
         const optimisticIndex = prev.findIndex(
           (m) =>
@@ -294,10 +296,12 @@ export const useChat = (groupId: string, currentUserId?: string) => {
 
         // Avoid duplicates for regular messages
         if (prev.some((m) => m._id === message._id)) {
+          console.log("Duplicate message, ignoring");
           return prev;
         }
 
         // Add new message
+        console.log("Adding new message");
         return [...prev, message];
       });
     };
@@ -325,14 +329,19 @@ export const useChat = (groupId: string, currentUserId?: string) => {
       setError(error.message);
     };
 
-    // Register event listeners
-    socketService.onNewMessage(handleNewMessage);
-    socketService.onUserTyping(handleUserTyping);
-    socketService.onMessageDeleted(handleMessageDeleted);
-    socketService.onError(handleError);
+    const setupEventListeners = () => {
+      console.log("📡 Setting up event listeners after connection");
+      socketService.onNewMessage(handleNewMessage);
+      socketService.onUserTyping(handleUserTyping);
+      socketService.onMessageDeleted(handleMessageDeleted);
+      socketService.onError(handleError);
+    };
+
+    connectAndJoin();
 
     return () => {
       // Cleanup
+      console.log("🧹 Cleaning up event listeners");
       socketService.offNewMessage(handleNewMessage);
       socketService.offUserTyping(handleUserTyping);
       socketService.offMessageDeleted();

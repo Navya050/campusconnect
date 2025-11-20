@@ -53,7 +53,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
     // Convert backend file path to accessible URL
     const baseUrl =
-      process.env.EXPO_PUBLIC_API_URL || "http://192.168.0.177:3406/api";
+      process.env.EXPO_PUBLIC_API_URL || "http://192.168.0.178:3406/api";
     const filename = mediaPath.split("/").pop();
     return `${baseUrl}/chat/uploads/${filename}`;
   };

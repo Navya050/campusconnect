@@ -11,6 +11,7 @@ export default function RegisterScreen() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [relatedCourses, setRelatedCourses]: any = useState([]);
 
   const [educationLevel, setEducationLevel] = useState("");
   const [category, setCategory] = useState("");
@@ -30,12 +31,39 @@ export default function RegisterScreen() {
   ];
 
   const categoryOptions = [
-    { label: "CSE", value: "CSE" },
-    { label: "AIML", value: "AIML" },
-    { label: "Finance", value: "FINANCE" },
-    { label: "ECE", value: "ECE" },
-    { label: "Mechanical", value: "MECHANICAL" },
-    { label: "Civil", value: "CIVIL" },
+    { label: "Information Technology, B.S.", value: "it", opt: "ug" },
+    { label: "Cyber Security, B.S.", value: "cs", opt: "ug" },
+    { label: "Philosophy, B.A.", value: "phil", opt: "ug" },
+    { label: "Psychology, B.A.", value: "psych", opt: "ug" },
+    { label: "Environmental Science, B.S.", value: "es", opt: "ug" },
+    { label: "Sociology, B.A.", value: "social", opt: "ug" },
+    { label: "Political Science, B.A./B.S.", value: "political", opt: "ug" },
+    { label: "History, B.A.", value: "history", opt: "ug" },
+    { label: "General Business Administration, B.S.", value: "gba", opt: "ug" },
+    { label: "Marketing, B.S.", value: "market", opt: "ug" },
+
+    { label: "M.S. in Computer Science", value: "cse", opt: "pg" },
+    { label: "M.S. in Applied Mathematics", value: "am", opt: "pg" },
+    { label: "M.S. in Chemistry", value: "chem", opt: "pg" },
+    { label: "M.S. in Accounting", value: "acc", opt: "pg" },
+    { label: "M.S. in Biology", value: "market", opt: "bio" },
+    { label: "M.P.H. Master of Public Health", value: "ph", opt: "pg" },
+    {
+      label: "M.A. in Clinical Mental Health Counselling",
+      value: "cmhc",
+      opt: "pg",
+    },
+    {
+      label: "Master of Business Administration (MBA)",
+      value: "mba",
+      opt: "pg",
+    },
+    {
+      label: "Master of Arts in Human Resource Development",
+      value: "hr",
+      opt: "pg",
+    },
+    { label: "Master of Arts in Linguistics", value: "linguistic", opt: "pg" },
   ];
 
   const handleRegister = async () => {
@@ -48,6 +76,11 @@ export default function RegisterScreen() {
       category &&
       graduationYear
     ) {
+      if (!email.includes(".edu")) {
+        alert.alert("Invalid format", "Email must contain .edu");
+        return;
+      }
+
       signupMutation.mutate(
         {
           firstName,
@@ -72,6 +105,14 @@ export default function RegisterScreen() {
       alert.alert("Missing Info", "Please fill out all the fields.");
     }
   };
+
+  function handleSelectEduOption(val: any) {
+    let relatedCourses_ = categoryOptions.filter(
+      (item: any) => item.opt == val.toLowerCase()
+    );
+    setRelatedCourses(relatedCourses_ ?? []);
+    setEducationLevel(val);
+  }
 
   return (
     <View style={styles.container}>
@@ -120,7 +161,7 @@ export default function RegisterScreen() {
               placeholder="Select education level"
               options={educationOptions}
               value={educationLevel}
-              onSelect={(value) => setEducationLevel(value || "")}
+              onSelect={(value) => handleSelectEduOption(value)}
               mode="outlined"
             />
           </View>
@@ -129,7 +170,7 @@ export default function RegisterScreen() {
             <Dropdown
               label="Category / Department"
               placeholder="Select category"
-              options={categoryOptions}
+              options={relatedCourses}
               value={category}
               onSelect={(value) => setCategory(value || "")}
               mode="outlined"

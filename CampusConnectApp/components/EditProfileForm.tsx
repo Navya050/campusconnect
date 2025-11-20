@@ -152,7 +152,7 @@ export const EditProfileForm: React.FC<EditProfileFormProps> = ({
 
       const response = await fetch(
         `${
-          process.env.EXPO_PUBLIC_API_URL || "http://192.168.0.177:3406/api"
+          process.env.EXPO_PUBLIC_API_URL || "http://192.168.0.178:3406/api"
         }/user/profile/${currentUser._id}`,
         {
           method: "PUT",
@@ -170,12 +170,17 @@ export const EditProfileForm: React.FC<EditProfileFormProps> = ({
         // Update stored user data
         await storage.setItem("userData", JSON.stringify(result.user));
 
-        Alert.alert("Success", "Profile updated successfully!", [
-          {
-            text: "OK",
-            onPress: () => onSave(result.user),
-          },
-        ]);
+        if (Platform.OS === "web") {
+          alert("Profile updated successfully!");
+          window.location.href = "/";
+        } else {
+          Alert.alert("Success", "Profile updated successfully!", [
+            {
+              text: "OK",
+              onPress: () => onSave(result.user),
+            },
+          ]);
+        }
       } else {
         Alert.alert("Error", result.message || "Failed to update profile");
       }

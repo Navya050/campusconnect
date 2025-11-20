@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   FlatList,
@@ -25,6 +25,9 @@ interface ChatProps {
 export const Chat: React.FC<ChatProps> = ({ groupId, currentUserId }) => {
   const flatListRef = useRef<FlatList>(null);
   const [hasInitiallyScrolled, setHasInitiallyScrolled] = useState(false);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const previousMessageCount = useRef(0);
 
   const {
     messages,
@@ -37,28 +40,41 @@ export const Chat: React.FC<ChatProps> = ({ groupId, currentUserId }) => {
     markAsRead,
   } = useChat(groupId, currentUserId);
 
+  console.log(messages);
+
   // Initial scroll to bottom when first entering chat
   useEffect(() => {
     if (messages.length > 0 && !hasInitiallyScrolled && !isLoading) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: false });
         setHasInitiallyScrolled(true);
+        previousMessageCount.current = messages.length;
       }, 200);
     }
   }, [messages.length, hasInitiallyScrolled, isLoading]);
 
-  // Auto-scroll to bottom when new messages arrive (after initial load)
+  // Auto-scroll to bottom only when new messages arrive AND user is near bottom
   useEffect(() => {
-    if (messages.length > 0 && hasInitiallyScrolled) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+    if (
+      messages.length > previousMessageCount.current &&
+      hasInitiallyScrolled
+    ) {
+      // Only auto-scroll if user is near the bottom (not manually scrolling up)
+      if (isNearBottom && !isUserScrolling) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+      previousMessageCount.current = messages.length;
     }
-  }, [messages.length, hasInitiallyScrolled]);
+  }, [messages.length, hasInitiallyScrolled, isNearBottom, isUserScrolling]);
 
   // Reset scroll state when groupId changes (switching between chats)
   useEffect(() => {
     setHasInitiallyScrolled(false);
+    setIsUserScrolling(false);
+    setIsNearBottom(true);
+    previousMessageCount.current = 0;
   }, [groupId]);
 
   // Mark messages as read when they come into view
@@ -114,7 +130,7 @@ export const Chat: React.FC<ChatProps> = ({ groupId, currentUserId }) => {
 
       const response = await fetch(
         `${
-          process.env.EXPO_PUBLIC_API_URL || "http://192.168.0.177:3406/api"
+          process.env.EXPO_PUBLIC_API_URL || "http://192.168.0.178:3406/api"
         }/chat/${groupId}/messages/media`,
         {
           method: "POST",
@@ -139,21 +155,14 @@ export const Chat: React.FC<ChatProps> = ({ groupId, currentUserId }) => {
     }
   };
 
-  const renderMessage = ({ item }: { item: ChatMessageType }) => {
-    const isOwnMessage = item.senderId === currentUserId;
+  const renderMessage = useCallback(
+    ({ item }: { item: ChatMessageType }) => {
+      const isOwnMessage = item.senderId === currentUserId;
 
-    // Debug log to check the comparison
-    console.log(
-      "Message senderId:",
-      item.senderId,
-      "Current userId:",
-      currentUserId,
-      "isOwnMessage:",
-      isOwnMessage
-    );
-
-    return <ChatMessage message={item} isOwnMessage={isOwnMessage} />;
-  };
+      return <ChatMessage message={item} isOwnMessage={isOwnMessage} />;
+    },
+    [currentUserId]
+  );
 
   const renderTypingIndicator = () => {
     if (typingUsers.length === 0) return null;
@@ -215,16 +224,46 @@ export const Chat: React.FC<ChatProps> = ({ groupId, currentUserId }) => {
           onSendMessage={handleSendMessage}
           onSendMedia={handleSendMedia}
           onTyping={sendTyping}
+          messages={messages}
           disabled={!isConnected}
         />
       </KeyboardAvoidingView>
     );
   }
 
+  const scrollToBottom = () => {
+    if (messages.length > 0) {
+      flatListRef.current?.scrollToEnd({ animated: true });
+      setIsNearBottom(true);
+    }
+  };
+
+  const handleScroll = (event: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromBottom =
+      contentSize.height - layoutMeasurement.height - contentOffset.y;
+
+    // Consider user "near bottom" if within 100 pixels of the bottom
+    const nearBottom = distanceFromBottom < 100;
+    setIsNearBottom(nearBottom);
+  };
+
+  const handleScrollBeginDrag = () => {
+    setIsUserScrolling(true);
+  };
+
+  const handleScrollEndDrag = () => {
+    // Keep scrolling flag for a bit longer to prevent immediate auto-scroll
+    setTimeout(() => {
+      setIsUserScrolling(false);
+    }, 500);
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
     >
       {renderConnectionStatus()}
 
@@ -239,12 +278,19 @@ export const Chat: React.FC<ChatProps> = ({ groupId, currentUserId }) => {
           messages.length === 0 && styles.emptyContainer,
         ]}
         ListEmptyComponent={isLoading ? null : renderEmptyState}
-        onContentSizeChange={() => {
-          if (messages.length > 0) {
-            flatListRef.current?.scrollToEnd({ animated: false });
-          }
-        }}
-        showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        onScrollBeginDrag={handleScrollBeginDrag}
+        onScrollEndDrag={handleScrollEndDrag}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={Platform.OS === "web"}
+        scrollEnabled={true}
+        nestedScrollEnabled={true}
+        keyboardShouldPersistTaps="handled"
+        removeClippedSubviews={Platform.OS === "android"}
+        maxToRenderPerBatch={10}
+        windowSize={10}
+        initialNumToRender={20}
+        getItemLayout={undefined}
       />
 
       {renderTypingIndicator()}
@@ -253,6 +299,7 @@ export const Chat: React.FC<ChatProps> = ({ groupId, currentUserId }) => {
         onSendMessage={handleSendMessage}
         onSendMedia={handleSendMedia}
         onTyping={sendTyping}
+        messages={messages}
         disabled={!isConnected}
       />
     </KeyboardAvoidingView>

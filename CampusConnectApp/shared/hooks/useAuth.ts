@@ -63,19 +63,33 @@ const authAPI = {
 
   async signup(userData: SignupData): Promise<AuthResponse> {
     console.log("userData: ", userData);
-    const response = await fetch(`${API_URL}/user/signup`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(userData),
-    });
+    try {
+      const response = await fetch(`${API_URL}/user/signup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+      });
 
-    if (!response.ok) {
-      throw new Error("Signup failed");
+      const data = await response.json();
+      console.log("Signup response:", data);
+
+      if (!response.ok) {
+        throw new Error(data.data || "Signup failed");
+      }
+
+      // Backend returns { success: true, data: user, group: {...} }
+      // But we need to return AuthResponse format for consistency
+      return {
+        token: "", // Signup doesn't return token, user needs to login
+        expiresIn: 0,
+        user: data.data,
+      };
+    } catch (error) {
+      console.error("Signup API error:", error);
+      throw error;
     }
-
-    return response.json();
   },
 
   async logout(): Promise<void> {

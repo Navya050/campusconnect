@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Modal,
+  ActivityIndicator,
 } from "react-native";
 import { IconButton, Surface } from "react-native-paper";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -23,18 +25,58 @@ interface ChatInputProps {
   ) => void;
   onTyping?: (isTyping: boolean) => void;
   disabled?: boolean;
+  messages?: ChatMessage[]; // Array of chat messages for summary
 }
+
+// Predefined list of inappropriate words
+const BAD_WORDS = [
+  "fuck",
+  "shit",
+  "ass",
+  "damn",
+  "bastard",
+  "crap",
+  "piss",
+
+];
+
+const FREE_MODELS = [
+  "deepseek/deepseek-chat-v3.1:free",
+  "meta-llama/llama-3.2-3b-instruct:free",
+  "microsoft/phi-3-mini-128k-instruct:free",
+  "huggingfaceh4/zephyr-7b-beta:free",
+];
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   onSendMessage,
   onSendMedia,
   onTyping,
   disabled = false,
+  messages = [],
 }) => {
   const [message, setMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summaryText, setSummaryText] = useState("");
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [warningMessage, setWarningMessage] = useState("");
   const inputRef = useRef<TextInput>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [summary, setSummary] = useState("");
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const containsBadWords = (text: string): boolean => {
+    const lowerText = text.toLowerCase();
+    return BAD_WORDS.some((word) => {
+      // Check for whole word matches and variations with special characters
+      const regex = new RegExp(
+        `\\b${word}\\b|${word.split("").join("[\\s\\*\\@\\#\\$]*")}`,
+        "i"
+      );
+      return regex.test(lowerText);
+    });
+  };
 
   const handleTextChange = (text: string) => {
     setMessage(text);
@@ -66,11 +108,280 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
     const messageText = message.trim();
 
+    // Check for inappropriate content
+    if (containsBadWords(messageText)) {
+      setWarningMessage(
+        "Cannot send message with inappropriate language. Please keep the conversation respectful."
+      );
+      setShowWarningModal(true);
+      return;
+    }
+
     setMessage("");
     setIsTyping(false);
     onTyping?.(false);
 
     onSendMessage(messageText);
+  };
+
+  const generateChatSummary = async () => {
+    if (!messages || messages.length === 0) {
+      Alert.alert("No Messages", "There are no messages to summarize.");
+      return;
+    }
+
+    // Open modal immediately with loading state
+    setLoadingSummary(true);
+    setSummaryText("");
+    setShowSummaryModal(true);
+
+    // Use setTimeout to ensure state updates before async operation
+    setTimeout(async () => {
+      try {
+        // Format chat messages
+        let filterdMessages = messages
+          .reverse()
+          .slice(0, 20)
+          .filter((item: any) => item.messageType == "text");
+        const chatText = filterdMessages
+          .map((msg) => `${msg.senderName}: ${msg.message}`)
+          .join("\n");
+
+        console.log("Formatted chat text:", chatText);
+
+        // Call OpenRouter API
+        const response = await fetch(
+          "https://openrouter.ai/api/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization:
+                "Bearer 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",
+              "HTTP-Referer": "",
+              "X-Title": "",
+            },
+            body: JSON.stringify({
+              model: "deepseek/deepseek-chat-v3.1:free",
+              messages: [
+                {
+                  role: "system",
+                  content: `You are a chat summarizer. Provide a ONE-LINE summary only. 
+            
+Rules:
+- If the chat contains important information (announcements, results, deadlines), EXTRACT the specific details (what exam/assignment, what's announced)
+- Ignore casual messages - focus ONLY on important announcements
+- Be precise with details (mention specific subjects, assignments, exams mentioned)
+- Keep it under 20 words
+
+Examples:
+- "4-1 assignment results published"
+- "Mid-term exam results for Mathematics announced"
+- "Project submission deadline: March 15th"
+- "Casual chat only" (only if no important info exists)`,
+                },
+                {
+                  role: "user",
+                  content: `Summarize this chat in ONE line:\n\n${chatText}`,
+                },
+              ],
+            }),
+          }
+        );
+
+        const data = await response.json();
+        console.log("API Response:", data);
+
+        if (data.error) {
+          setSummaryText("Failed to generate summary. Please try again.");
+          setShowSummaryModal(false);
+        }
+
+        if (data.choices && data.choices[0]?.message?.content) {
+          // Clean up the response text (remove special tokens if any)
+          let summaryContent = data.choices[0].message.content;
+          summaryContent = summaryContent
+            .replace(/<｜begin▁of▁sentence｜>/g, "")
+            .trim();
+          setSummaryText(summaryContent);
+        } else {
+          throw new Error("Invalid response from API");
+        }
+      } catch (error) {
+        console.error("Error generating summary:", error);
+        setSummaryText("Failed to generate summary. Please try again.");
+      } finally {
+        setLoadingSummary(false);
+      }
+    }, 100);
+  };
+
+  const generateFallbackSummary = (messages: ChatMessage[]): string => {
+    const filteredMessages = messages
+      .slice()
+      .reverse()
+      .slice(0, 20)
+      .filter((item: any) => item.messageType === "text");
+
+    if (filteredMessages.length === 0) {
+      return "No text messages to summarize";
+    }
+
+    // Look for keywords that might indicate important information
+    const importantKeywords = [
+      "assignment",
+      "exam",
+      "test",
+      "deadline",
+      "result",
+      "grade",
+      "announcement",
+      "meeting",
+      "project",
+      "submission",
+      "due",
+    ];
+
+    const importantMessages = filteredMessages.filter((msg) =>
+      importantKeywords.some((keyword) =>
+        msg.message.toLowerCase().includes(keyword)
+      )
+    );
+
+    if (importantMessages.length > 0) {
+      const latestImportant = importantMessages[0];
+      return `${latestImportant.senderName} mentioned ${latestImportant.message}`;
+    }
+
+    // If no important messages, provide basic summary
+    const uniqueSenders = [
+      ...new Set(filteredMessages.map((msg) => msg.senderName)),
+    ];
+    const messageCount = filteredMessages.length;
+
+    if (uniqueSenders.length === 1) {
+      return `${messageCount} messages from ${uniqueSenders[0]}`;
+    } else {
+      return `${messageCount} messages from ${
+        uniqueSenders.length
+      } participants: ${uniqueSenders.slice(0, 2).join(", ")}${
+        uniqueSenders.length > 2 ? " and others" : ""
+      }`;
+    }
+  };
+
+  const generateChatSummaryV2 = async () => {
+    if (!messages || messages.length === 0) {
+      Alert.alert("No Messages", "There are no messages to summarize.");
+      return;
+    }
+
+    // Open modal immediately with loading state
+    setLoadingSummary(true);
+    setSummaryText("");
+    setShowSummaryModal(true);
+
+    // Use setTimeout to ensure state updates before async operation
+    let filteredMessages = messages
+      .slice() // Create a copy to avoid mutating original
+      .reverse()
+      .slice(0, 20)
+      .filter((item: any) => item.messageType == "text");
+
+    const chatText = filteredMessages
+      .map((msg) => `${msg.senderName}: ${msg.message}`)
+      .join("\n");
+
+    for (let i = 0; i < FREE_MODELS.length; i++) {
+      const modelName = FREE_MODELS[i];
+
+      try {
+        console.log(`Attempting with model: ${modelName}`);
+
+        const response = await fetch(
+          "https://openrouter.ai/api/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization:
+                "Bearer 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",
+              "HTTP-Referer": "",
+              "X-Title": "",
+            },
+            body: JSON.stringify({
+              model: modelName,
+              messages: [
+                {
+                  role: "system",
+                  content: `You are a chat summarizer. Provide a ONE-LINE summary only. 
+            
+Rules:
+- If the chat contains important information (announcements, results, deadlines), EXTRACT the specific details (what exam/assignment, what's announced)
+- Ignore casual messages - focus ONLY on important announcements
+- Be precise with details (mention specific subjects, assignments, exams mentioned)
+- Keep it under 20 words
+
+Examples:
+- "4-1 assignment results published"
+- "Mid-term exam results for Mathematics announced"
+- "Project submission deadline: March 15th"
+- "Casual chat only" (only if no important info exists)`,
+                },
+                {
+                  role: "user",
+                  content: `Summarize this chat in ONE line:\n\n${chatText}`,
+                },
+              ],
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        // Check if there's an error in the response
+        if (data.error) {
+          console.error(`Model ${modelName} failed:`, data.error.message);
+
+          // If it's a capacity error and we have more models to try, continue
+          if (
+            (data.error.message.includes("at capacity") ||
+              data.error.message.includes("Provider returned error")) &&
+            i < FREE_MODELS.length - 1
+          ) {
+            console.log("Trying next model...");
+            continue;
+          }
+
+          // If it's the last model or a different error, throw
+          throw new Error(data.error.message);
+        }
+
+        // Success! Return the summary
+        const summary = data.choices[0].message.content.trim();
+        console.log("Summary generated successfully:", summary);
+        setSummaryText(summary);
+        setLoadingSummary(false);
+        return;
+      } catch (error) {
+        console.error(`Error with model ${modelName}:`, error);
+
+        // If this was the last model, return fallback
+        if (i === FREE_MODELS.length - 1) {
+          console.log("All models failed, using fallback summary");
+          const fallbackSummary = generateFallbackSummary(filteredMessages);
+          setSummaryText(fallbackSummary);
+          setLoadingSummary(false);
+          return;
+        }
+
+        // Otherwise, try the next model
+        console.log("Trying next model...");
+      }
+    }
+
+    // This shouldn't be reached, but just in case
+    return true;
   };
 
   const handleImagePicker = async () => {
@@ -209,8 +520,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         if (asset.base64) {
           // Create base64 string with data URL format
           const base64Image = `data:image/jpeg;base64,${asset.base64}`;
-          // setSelectedImage(base64Image);
-          console.log(asset.fileName);
           const media = {
             uri: base64Image,
             type: "image",
@@ -218,7 +527,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           };
 
           onSendMedia?.(media, message.trim() || undefined);
-          setMessage(""); // Clear message after sending media
+          setMessage("");
           console.log(base64Image);
         }
       }
@@ -260,6 +569,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         />
 
         <TouchableOpacity
+          onPress={generateChatSummaryV2}
+          disabled={disabled}
+          style={styles.summaryButton}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <MaterialIcons
+            name="info-outline"
+            size={20}
+            color={disabled ? Colors.light.icon : Colors.light.tint}
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[
             styles.sendButton,
             (!message.trim() || disabled) && styles.sendButtonDisabled,
@@ -274,6 +597,71 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           />
         </TouchableOpacity>
       </Surface>
+
+      {/* Summary Modal */}
+      <Modal
+        visible={showSummaryModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSummaryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chat Summary</Text>
+              <TouchableOpacity
+                onPress={() => setShowSummaryModal(false)}
+                style={styles.closeButton}
+              >
+                <MaterialIcons
+                  name="close"
+                  size={24}
+                  color={Colors.light.text}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {loadingSummary ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.light.tint} />
+                <Text style={styles.loadingText}>Generating summary...</Text>
+              </View>
+            ) : (
+              <View style={styles.summaryContainer}>
+                <Text style={styles.summaryText}>{summaryText}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Warning Modal */}
+      <Modal
+        visible={showWarningModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowWarningModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.warningHeader}>
+              <MaterialIcons name="warning" size={48} color="#f44336" />
+            </View>
+
+            <View style={styles.warningBody}>
+              <Text style={styles.warningTitle}>Inappropriate Content</Text>
+              <Text style={styles.warningText}>{warningMessage}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.warningButton}
+              onPress={() => setShowWarningModal(false)}
+            >
+              <Text style={styles.warningButtonText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -353,6 +741,15 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  summaryButton: {
+    margin: 0,
+    width: 32,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 16,
+    marginLeft: 4,
+  },
   sendButton: {
     width: 32,
     height: 32,
@@ -364,5 +761,96 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: "#e0e0e0",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    width: "100%",
+    maxWidth: 400,
+    maxHeight: "80%",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: Colors.light.text,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: Colors.light.icon,
+  },
+  summaryContainer: {
+    padding: 20,
+  },
+  summaryText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: Colors.light.text,
+  },
+  warningHeader: {
+    alignItems: "center",
+    paddingTop: 30,
+    paddingBottom: 20,
+  },
+  warningBody: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  warningTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#f44336",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  warningText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: Colors.light.text,
+    textAlign: "center",
+  },
+  warningButton: {
+    backgroundColor: "#f44336",
+    marginHorizontal: 20,
+    marginBottom: 20,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  warningButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

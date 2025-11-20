@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Text,
   Alert,
+  Dimensions,
+  Modal,
 } from "react-native";
 import {
   Card,
@@ -17,6 +19,7 @@ import {
   Chip,
   Menu,
   IconButton,
+  Searchbar,
 } from "react-native-paper";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -26,6 +29,7 @@ import {
   useJoinStudyGroup,
   StudyGroup,
   useLeaveStudyGroup,
+  useAllOtherGroups,
 } from "@/shared/hooks/useStudyGroups";
 import { Colors } from "../constants/theme";
 import storage from "@/shared/utils/storage";
@@ -74,16 +78,26 @@ const getStudyLevels = (userEducationLevel: string): StudyLevel[] => {
   return [];
 };
 
+const { height: screenHeight } = Dimensions.get("window");
+
 export const StudySpacePage: React.FC = () => {
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<StudyGroup | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [showOtherGroups, setShowOtherGroups] = useState(false);
+  const [selectedGroupInfo, setSelectedGroupInfo] = useState<StudyGroup | null>(
+    null
+  );
+  const [searchQuery, setSearchQuery] = useState("");
+
   const router = useRouter();
   const { data: isAuthenticated, isLoading } = useIsAuthenticated();
 
   const joinGroupMutation = useJoinStudyGroup();
   const leaveGroupMutation = useLeaveStudyGroup();
+
+  const [modalVisible, setModalVisible] = useState(false);
 
   // Get user data from storage
   useEffect(() => {
@@ -137,6 +151,18 @@ export const StudySpacePage: React.FC = () => {
     userId: user?._id,
   });
 
+  // Fetch other groups (different from user's criteria)
+  const {
+    data: otherGroups,
+    isLoading: otherGroupsLoading,
+    error: otherGroupsError,
+  } = useAllOtherGroups({
+    educationLevel: user?.educationLevel,
+    category: user?.category,
+    graduationYear: user?.graduationYear,
+    userId: user?._id,
+  });
+
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -181,6 +207,38 @@ export const StudySpacePage: React.FC = () => {
     setSelectedGroup(group);
   };
 
+  const handleShowGroupInfo = (group: StudyGroup) => {
+    console.log("Opening modal for group:", group.name);
+    setSelectedGroupInfo(group);
+    setModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedGroupInfo(null);
+    setModalVisible(false);
+  };
+
+  const handleGetAllGroups = () => {
+    setShowOtherGroups(!showOtherGroups);
+  };
+
+  // Filter groups based on search query
+  const filterGroups = (groupList: StudyGroup[]) => {
+    if (!searchQuery.trim()) return groupList;
+
+    const query = searchQuery.toLowerCase().trim();
+    return groupList.filter(
+      (group) =>
+        group.name.toLowerCase().includes(query) ||
+        group.description.toLowerCase().includes(query) ||
+        group.category.toLowerCase().includes(query) ||
+        group.graduationYear.toString().includes(query)
+    );
+  };
+
+  const filteredGroups = groups ? filterGroups(groups) : [];
+  const filteredOtherGroups = otherGroups ? filterGroups(otherGroups) : [];
+
   // Show loading or redirect if not authenticated
   if (isLoading || !isAuthenticated || !user) {
     return (
@@ -198,6 +256,12 @@ export const StudySpacePage: React.FC = () => {
         <View style={styles.groupHeader}>
           <Title style={styles.groupTitle}>{group.name}</Title>
           <View style={styles.groupStats}>
+            <IconButton
+              icon="information"
+              size={20}
+              onPress={() => handleShowGroupInfo(group)}
+              style={styles.infoIconButton}
+            />
             {group.isJoined && (
               <Chip mode="flat" style={styles.joinedChip} compact>
                 Joined
@@ -318,8 +382,29 @@ export const StudySpacePage: React.FC = () => {
           </Card.Content>
         </Card>
 
+        {/* Search Bar */}
+        <Searchbar
+          placeholder="Search groups by name, category, or year..."
+          onChangeText={setSearchQuery}
+          value={searchQuery}
+          style={styles.searchBar}
+          inputStyle={styles.searchInput}
+          iconColor={Colors.light.tint}
+        />
+
         <View style={styles.groupsContainer}>
-          {groups && groups.length > 0 ? (
+          {filteredGroups && filteredGroups.length > 0 ? (
+            filteredGroups.map(renderGroupCard)
+          ) : searchQuery.trim() ? (
+            <Card style={styles.emptyCard}>
+              <Card.Content>
+                <Title style={styles.emptyTitle}>No Groups Found</Title>
+                <Paragraph>
+                  No groups match your search criteria. Try different keywords.
+                </Paragraph>
+              </Card.Content>
+            </Card>
+          ) : groups && groups.length > 0 ? (
             groups.map(renderGroupCard)
           ) : (
             <Card style={styles.emptyCard}>
@@ -333,6 +418,58 @@ export const StudySpacePage: React.FC = () => {
             </Card>
           )}
         </View>
+
+        {/* Other Groups Section */}
+        <Card style={styles.otherGroupsCard}>
+          <Card.Content>
+            <View style={styles.otherGroupsHeader}>
+              <Title style={styles.otherGroupsTitle}>Other Groups</Title>
+              <Button
+                mode="text"
+                onPress={handleGetAllGroups}
+                style={styles.showMoreButton}
+              >
+                {showOtherGroups ? "Show Less" : "Show More"}
+              </Button>
+            </View>
+            <Paragraph style={styles.otherGroupsDescription}>
+              Explore groups from other programs and years
+            </Paragraph>
+          </Card.Content>
+        </Card>
+
+        {showOtherGroups && (
+          <View style={styles.otherGroupsContainer}>
+            {otherGroupsLoading ? (
+              <View style={styles.centered}>
+                <ActivityIndicator size="small" color={level.color} />
+                <Text style={styles.loadingText}>Loading other groups...</Text>
+              </View>
+            ) : filteredOtherGroups && filteredOtherGroups.length > 0 ? (
+              filteredOtherGroups.map(renderGroupCard)
+            ) : searchQuery.trim() ? (
+              <Card style={styles.emptyCard}>
+                <Card.Content>
+                  <Title style={styles.emptyTitle}>No Other Groups Found</Title>
+                  <Paragraph>
+                    No other groups match your search criteria.
+                  </Paragraph>
+                </Card.Content>
+              </Card>
+            ) : otherGroups && otherGroups.length > 0 ? (
+              otherGroups.map(renderGroupCard)
+            ) : (
+              <Card style={styles.emptyCard}>
+                <Card.Content>
+                  <Title style={styles.emptyTitle}>No Other Groups</Title>
+                  <Paragraph>
+                    No other groups available at the moment.
+                  </Paragraph>
+                </Card.Content>
+              </Card>
+            )}
+          </View>
+        )}
 
         <Button
           mode="outlined"
@@ -397,59 +534,184 @@ export const StudySpacePage: React.FC = () => {
     );
   };
 
+  // Render the modal at the top level so it's always available
+  const renderModal = () => (
+    <Modal
+      visible={modalVisible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={handleCloseModal}
+    >
+      <View style={styles.modalOverlay}>
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          onPress={handleCloseModal}
+          activeOpacity={1}
+        />
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalHandle} />
+            <IconButton
+              icon="close"
+              size={24}
+              onPress={handleCloseModal}
+              style={styles.closeButton}
+            />
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            {selectedGroupInfo && (
+              <>
+                <Title style={styles.modalTitle}>
+                  {selectedGroupInfo.name}
+                </Title>
+                <Text style={styles.modalSubtitle}>
+                  {selectedGroupInfo.category} •{" "}
+                  {selectedGroupInfo.graduationYear}
+                </Text>
+
+                <Paragraph style={styles.modalDescription}>
+                  {selectedGroupInfo.description}
+                </Paragraph>
+
+                <View style={styles.modalDetailRow}>
+                  <Text style={styles.modalDetailLabel}>Education Level</Text>
+                  <Text style={styles.modalDetailValue}>
+                    {selectedGroupInfo.educationLevel === "UG"
+                      ? "Undergraduate"
+                      : "Postgraduate"}
+                  </Text>
+                </View>
+
+                <View style={styles.modalDetailRow}>
+                  <Text style={styles.modalDetailLabel}>Category</Text>
+                  <Text style={styles.modalDetailValue}>
+                    {selectedGroupInfo.category}
+                  </Text>
+                </View>
+
+                <View style={styles.modalDetailRow}>
+                  <Text style={styles.modalDetailLabel}>Graduation Year</Text>
+                  <Text style={styles.modalDetailValue}>
+                    {selectedGroupInfo.graduationYear}
+                  </Text>
+                </View>
+
+                <View style={styles.modalDetailRow}>
+                  <Text style={styles.modalDetailLabel}>Members</Text>
+                  <Text style={styles.modalDetailValue}>
+                    {selectedGroupInfo.studentCount} /{" "}
+                    {selectedGroupInfo.maxCapacity}
+                  </Text>
+                </View>
+
+                <View style={styles.modalDetailRow}>
+                  <Text style={styles.modalDetailLabel}>Status</Text>
+                  <Text style={styles.modalDetailValue}>
+                    {selectedGroupInfo.isFull ? "Full" : "Available"}
+                  </Text>
+                </View>
+
+                {selectedGroupInfo.isJoined ? (
+                  <Button
+                    mode="contained"
+                    onPress={() => {
+                      handleCloseModal();
+                      handleViewGroup(selectedGroupInfo);
+                    }}
+                    style={[styles.viewButton, { marginTop: 20 }]}
+                  >
+                    View Group Chat
+                  </Button>
+                ) : (
+                  <Button
+                    mode="contained"
+                    onPress={() => {
+                      handleCloseModal();
+                      handleJoinGroup(selectedGroupInfo);
+                    }}
+                    disabled={
+                      selectedGroupInfo.isFull || joinGroupMutation.isPending
+                    }
+                    style={[styles.joinButton, { marginTop: 20 }]}
+                  >
+                    {selectedGroupInfo.isFull ? "Group is Full" : "Join Group"}
+                  </Button>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+
   if (selectedGroup) {
-    return renderGroupView();
+    return (
+      <>
+        {renderGroupView()}
+        {renderModal()}
+      </>
+    );
   }
 
   if (selectedLevel) {
     return (
-      <ScrollView style={styles.container}>{renderSelectedScreen()}</ScrollView>
+      <>
+        <ScrollView style={styles.container}>
+          {renderSelectedScreen()}
+        </ScrollView>
+        {renderModal()}
+      </>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <MaterialIcons
-          name="library-books"
-          size={40}
-          color={Colors.light.tint}
-        />
-        <Title style={styles.headerTitle}>Study Space</Title>
-        <Paragraph style={styles.headerSubtitle}>
-          Welcome {user.firstName}! Access your{" "}
-          {user.educationLevel === "UG" ? "Undergraduate" : "Postgraduate"}{" "}
-          study groups
-        </Paragraph>
-      </View>
+    <>
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <MaterialIcons
+            name="library-books"
+            size={40}
+            color={Colors.light.tint}
+          />
+          <Title style={styles.headerTitle}>Study Space</Title>
+          <Paragraph style={styles.headerSubtitle}>
+            Welcome {user.firstName}! Access your{" "}
+            {user.educationLevel === "UG" ? "Undergraduate" : "Postgraduate"}{" "}
+            study groups
+          </Paragraph>
+        </View>
 
-      <View style={styles.levelsContainer}>
-        {studyLevels.map(renderLevelCard)}
-      </View>
+        <View style={styles.levelsContainer}>
+          {studyLevels.map(renderLevelCard)}
+        </View>
 
-      <Card style={styles.infoCard}>
-        <Card.Content>
-          <View style={styles.infoHeader}>
-            <MaterialIcons name="info" size={24} color={Colors.light.tint} />
-            <Text style={styles.infoTitle}>Study Space Features</Text>
-          </View>
-          <View style={styles.featuresList}>
-            <Text style={styles.featureItem}>
-              • Access to study groups and chat
-            </Text>
-            <Text style={styles.featureItem}>
-              • Connect with peers in your program
-            </Text>
-            <Text style={styles.featureItem}>
-              • Real-time messaging with Socket.IO
-            </Text>
-            <Text style={styles.featureItem}>
-              • Collaborate on study materials
-            </Text>
-          </View>
-        </Card.Content>
-      </Card>
-    </ScrollView>
+        <Card style={styles.infoCard}>
+          <Card.Content>
+            <View style={styles.infoHeader}>
+              <MaterialIcons name="info" size={24} color={Colors.light.tint} />
+              <Text style={styles.infoTitle}>Study Space Features</Text>
+            </View>
+            <View style={styles.featuresList}>
+              <Text style={styles.featureItem}>
+                • Access to study groups and chat
+              </Text>
+              <Text style={styles.featureItem}>
+                • Connect with peers in your program
+              </Text>
+              <Text style={styles.featureItem}>
+                • Real-time messaging with Socket.IO
+              </Text>
+              <Text style={styles.featureItem}>
+                • Collaborate on study materials
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+      </ScrollView>
+      {renderModal()}
+    </>
   );
 };
 
@@ -576,7 +838,12 @@ const styles = StyleSheet.create({
   },
   groupStats: {
     flexDirection: "row",
+    alignItems: "center",
     gap: 8,
+  },
+  infoIconButton: {
+    margin: 0,
+    padding: 4,
   },
   joinedChip: {
     backgroundColor: "#30d830ff",
@@ -705,5 +972,156 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 12,
     lineHeight: 24,
+  },
+  // Other Groups styles
+  otherGroupsCard: {
+    backgroundColor: "white",
+    marginBottom: 16,
+    marginTop: 16,
+  },
+  otherGroupsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  otherGroupsTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.light.text,
+  },
+  otherGroupsDescription: {
+    fontSize: 14,
+    color: Colors.light.icon,
+    lineHeight: 20,
+  },
+  showMoreButton: {
+    margin: 0,
+  },
+  otherGroupsContainer: {
+    gap: 12,
+  },
+  // Bottom Sheet styles
+  bottomSheetContent: {
+    padding: 20,
+  },
+  bottomSheetTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: Colors.light.text,
+    marginBottom: 8,
+  },
+  bottomSheetSubtitle: {
+    fontSize: 16,
+    color: Colors.light.icon,
+    marginBottom: 16,
+  },
+  bottomSheetDescription: {
+    fontSize: 16,
+    color: Colors.light.text,
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  bottomSheetDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  bottomSheetDetailLabel: {
+    fontSize: 14,
+    color: Colors.light.icon,
+    fontWeight: "500",
+  },
+  bottomSheetDetailValue: {
+    fontSize: 14,
+    color: Colors.light.text,
+  },
+  // Search styles
+  searchBar: {
+    marginBottom: 16,
+    backgroundColor: "white",
+    elevation: 2,
+  },
+  searchInput: {
+    fontSize: 16,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalBackdrop: {
+    flex: 1,
+  },
+  modalContainer: {
+    backgroundColor: "white",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: screenHeight * 0.8,
+    minHeight: screenHeight * 0.4,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#ccc",
+    borderRadius: 2,
+    alignSelf: "center",
+    position: "absolute",
+    top: 8,
+    left: "50%",
+    marginLeft: -20,
+  },
+  closeButton: {
+    margin: 0,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: Colors.light.text,
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: Colors.light.icon,
+    marginBottom: 16,
+  },
+  modalDescription: {
+    fontSize: 16,
+    color: Colors.light.text,
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  modalDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  modalDetailLabel: {
+    fontSize: 14,
+    color: Colors.light.icon,
+    fontWeight: "500",
+  },
+  modalDetailValue: {
+    fontSize: 14,
+    color: Colors.light.text,
+    fontWeight: "600",
   },
 });
