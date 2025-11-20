@@ -23,24 +23,14 @@ router.post("/signup", async (req, res, next) => {
 
     const result = await user.save();
 
-    let group = await Group.findOne({
-      category: req.body.category,
-      educationLevel: req.body.educationLevel,
-      graduationYear: req.body.graduationYear,
-    });
-
-    if (!group) {
-      group = new Group({
-        name: `${req.body.category} ${req.body.educationLevel} ${req.body.graduationYear}`,
-        description: `Default group for ${req.body.category} ${req.body.educationLevel} students graduating in ${req.body.graduationYear}`,
-        category: req.body.category,
-        educationLevel: req.body.educationLevel,
-        graduationYear: req.body.graduationYear,
-      });
-
-      await group.save();
-      console.log(`Created new group: ${group.name}`);
-    }
+    const query = { isActive: true };
+        query.category = req.body.category;
+        query.educationLevel = req.body.educationLevel;
+        query.graduationYear = req.body.graduationYear;
+    
+        const group = await Group.find(query)
+          .populate("students", "firstName lastName email")
+          .sort({ createdAt: -1 });
 
     res.status(201).json({
       success: true,
@@ -127,6 +117,86 @@ router.get("/:id", (req, res, next) => {
     .catch((err) => {
       console.log(err);
     });
+});
+
+// Update user profile
+router.put("/profile/:id", async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const {
+      firstName,
+      lastName,
+      email,
+      graduationYear,
+      educationLevel,
+      category,
+    } = req.body;
+
+    // Check if email is being changed and if it already exists
+    if (email) {
+      const existingUser = await User.findOne({
+        email: email,
+        _id: { $ne: userId },
+      });
+
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          message: "Email already exists",
+        });
+      }
+    }
+
+    // Update user profile
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        firstName,
+        lastName,
+        email,
+        graduationYear,
+        educationLevel,
+        category,
+      },
+      {
+        new: true, // Return updated document
+        runValidators: true, // Run schema validators
+      }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Remove password from response
+    const userResponse = updatedUser.toObject();
+    delete userResponse.password;
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: userResponse,
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+
+    if (error.code === 11000) {
+      // Handle duplicate key error
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(409).json({
+        success: false,
+        message: `${field} already exists`,
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to update profile",
+    });
+  }
 });
 
 module.exports = router;

@@ -5,6 +5,7 @@ const Posts = require("./models/post");
 const postRoutes = require("./routes/post");
 const userRoutes = require("./routes/user");
 const groupRoutes = require("./routes/group");
+const chatRoutes = require("./routes/chat");
 require("dotenv").config();
 
 const app = express();
@@ -36,5 +37,6 @@ mongoose
 app.use("/api/posts", postRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/groups", groupRoutes);
+app.use("/api/chat", chatRoutes);
 
 module.exports = app;

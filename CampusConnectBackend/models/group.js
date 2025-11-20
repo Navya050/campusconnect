@@ -12,7 +12,6 @@ const groupSchema = mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ["CSE", "AIML", "FINANCE", "ECE", "MECHANICAL", "CIVIL"],
       required: true,
     },
     graduationYear: {

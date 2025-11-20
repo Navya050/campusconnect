@@ -95,6 +95,59 @@ router.get("/", async (req, res) => {
   }
 });
 
+router.get("/get-all-groups", async (req, res) => {
+  try {
+    console.log("called");
+    const { category, educationLevel, graduationYear, userId } = req.query;
+
+    const query = { isActive: true };
+
+    // Return all active groups - no exclusion logic needed
+    if (false) {
+      query.$nor = [
+        {
+          $and: [
+            { category: { $regex: new RegExp(`^${category}$`, "i") } }, // Case-insensitive match
+            { educationLevel: educationLevel },
+            { graduationYear: graduationYear },
+          ],
+        },
+      ];
+    }
+
+    const groups = await Group.find(query)
+      .populate("students", "firstName lastName email")
+      .sort({ createdAt: -1 });
+
+    // Mark which groups the user has already joined
+    const groupsWithStatus = groups.map((group) => ({
+      _id: group._id,
+      name: group.name,
+      description: group.description,
+      category: group.category,
+      educationLevel: group.educationLevel,
+      graduationYear: group.graduationYear,
+      studentCount: group.students.length,
+      maxCapacity: group.maxCapacity,
+      isFull: group.isFull(),
+      isJoined: userId
+        ? group.students.some((s) => s._id.toString() === userId)
+        : false,
+      createdAt: group.createdAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: groupsWithStatus,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      data: error.message || "Failed to fetch groups",
+    });
+  }
+});
+
 router.post("/:groupId/leave", async (req, res) => {
   try {
     const { groupId } = req.params;
