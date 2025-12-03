@@ -1,36 +1,32 @@
-import React, { useState, useEffect } from "react";
-import {
-  StyleSheet,
-  View,
-  ScrollView,
-  TouchableOpacity,
-  Text,
-  Image,
-  Alert,
-} from "react-native";
-import {
-  Card,
-  Title,
-  Paragraph,
-  Button,
-  Surface,
-  Chip,
-  Searchbar,
-  FAB,
-  ActivityIndicator,
-} from "react-native-paper";
+import { useIsAuthenticated } from "@/shared/hooks/useAuth";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useIsAuthenticated } from "@/shared/hooks/useAuth";
-import { Colors } from "../constants/theme";
-import { PostComponent, Post } from "../components/PostComponent";
-import { PostCreateForm, PostFormData } from "../components/PostCreateForm";
+import React, { useEffect, useState } from "react";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
-  useMarketplacePosts,
-  useCreatePost,
-  usePost,
+  ActivityIndicator,
+  Button,
+  Chip,
+  FAB,
+  Paragraph,
+  Searchbar,
+  Title,
+} from "react-native-paper";
+import { Post, PostComponent } from "../components/PostComponent";
+import { PostCreateForm, PostFormData } from "../components/PostCreateForm";
+import { Colors } from "../constants/theme";
+import {
+  setSearchQuery,
+  setSelectedCategory,
+  setSelectedPost,
+} from "../shared/store/postsSlice";
+import { useAppDispatch, useAppSelector } from "../shared/hooks/hooks";
+import {
   useAddComment,
+  useCreatePost,
   useDeleteComment,
+  useMarketplacePosts,
+  usePost,
 } from "../shared/hooks/usePosts";
 import storage from "../shared/utils/storage";
 
@@ -142,14 +138,21 @@ const categories = [
 ];
 
 export const MarketPage: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   const router = useRouter();
   const { data: isAuthenticated, isLoading } = useIsAuthenticated();
+
+  // Redux state and actions
+  const dispatch = useAppDispatch();
+  const {
+    selectedCategory: reduxSelectedCategory,
+    searchQuery: reduxSearchQuery,
+    selectedPost: reduxSelectedPost,
+    isLoading: reduxPostsLoading,
+    error: reduxPostsError,
+  } = useAppSelector((state) => state.posts);
 
   // Get current user data
   useEffect(() => {
@@ -168,19 +171,19 @@ export const MarketPage: React.FC = () => {
     getUserData();
   }, []);
 
-  // Fetch marketplace posts
+  // Fetch marketplace posts (keeping React Query for now, but managing filters with Redux)
   const {
     data: posts,
     isLoading: postsLoading,
     error: postsError,
   } = useMarketplacePosts(
-    selectedCategory === "All" ? undefined : selectedCategory,
+    reduxSelectedCategory === "All" ? undefined : reduxSelectedCategory,
     currentUser?._id
   );
 
   // Get specific post for detailed view
   const { data: fullPost, isLoading: postLoading } = usePost(
-    selectedPost?._id || ""
+    reduxSelectedPost?._id || ""
   );
 
   // Mutations
@@ -215,7 +218,7 @@ export const MarketPage: React.FC = () => {
   };
 
   const handlePostClick = (post: Post) => {
-    setSelectedPost(post);
+    dispatch(setSelectedPost(post as any)); // Type conversion for now
   };
 
   const handleAddComment = async (postId: string, content: string) => {
@@ -227,14 +230,18 @@ export const MarketPage: React.FC = () => {
   };
 
   const handleCategorySelect = (category: string) => {
-    setSelectedCategory(category);
+    dispatch(setSelectedCategory(category));
   };
 
-  // Filter posts based on search query
+  const handleSearchChange = (query: string) => {
+    dispatch(setSearchQuery(query));
+  };
+
+  // Filter posts based on Redux search query
   const filteredPosts =
     posts?.filter((post: Post) => {
-      if (!searchQuery.trim()) return true;
-      const query = searchQuery.toLowerCase();
+      if (!reduxSearchQuery.trim()) return true;
+      const query = reduxSearchQuery.toLowerCase();
       return (
         post.title.toLowerCase().includes(query) ||
         post.content.toLowerCase().includes(query) ||
@@ -255,14 +262,14 @@ export const MarketPage: React.FC = () => {
   }
 
   // Show detailed post view
-  if (selectedPost) {
-    const postToShow = fullPost || selectedPost;
+  if (reduxSelectedPost) {
+    const postToShow = fullPost || reduxSelectedPost;
     return (
       <View style={styles.container}>
         <View style={styles.detailHeader}>
           <Button
             mode="outlined"
-            onPress={() => setSelectedPost(null)}
+            onPress={() => dispatch(setSelectedPost(null))}
             icon="arrow-left"
             style={styles.backButton}
           >
@@ -271,7 +278,7 @@ export const MarketPage: React.FC = () => {
         </View>
         <ScrollView style={styles.detailContent}>
           <PostComponent
-            post={postToShow}
+            post={postToShow as any}
             onPostClick={() => {}}
             onAddComment={handleAddComment}
             onDeleteComment={handleDeleteComment}
@@ -302,8 +309,8 @@ export const MarketPage: React.FC = () => {
         <View style={styles.searchSection}>
           <Searchbar
             placeholder="Search posts..."
-            onChangeText={setSearchQuery}
-            value={searchQuery}
+            onChangeText={handleSearchChange}
+            value={reduxSearchQuery}
             style={styles.searchBar}
           />
         </View>
@@ -314,16 +321,16 @@ export const MarketPage: React.FC = () => {
               {categories.map((category) => (
                 <Chip
                   key={category}
-                  selected={selectedCategory === category}
+                  selected={reduxSelectedCategory === category}
                   onPress={() => handleCategorySelect(category)}
                   style={[
                     styles.categoryChip,
-                    selectedCategory === category &&
+                    reduxSelectedCategory === category &&
                       styles.selectedCategoryChip,
                   ]}
                   textStyle={[
                     styles.categoryChipText,
-                    selectedCategory === category &&
+                    reduxSelectedCategory === category &&
                       styles.selectedCategoryChipText,
                   ]}
                 >

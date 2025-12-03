@@ -34,6 +34,15 @@ import {
 import { Colors } from "../constants/theme";
 import storage from "@/shared/utils/storage";
 import { Chat } from "@/components/chat/Chat";
+import { useAppDispatch, useAppSelector } from "../shared/hooks/hooks";
+import {
+  setSearchQuery,
+  setSelectedGroup,
+  setShowOtherGroups,
+  updateGroupJoinStatus,
+  fetchStudyGroups,
+  fetchOtherGroups,
+} from "../shared/store/studyGroupsSlice";
 
 interface User {
   _id: string;
@@ -82,22 +91,25 @@ const { height: screenHeight } = Dimensions.get("window");
 
 export const StudySpacePage: React.FC = () => {
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
-  const [selectedGroup, setSelectedGroup] = useState<StudyGroup | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
-  const [showOtherGroups, setShowOtherGroups] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<StudyGroup | null>(null);
   const [selectedGroupInfo, setSelectedGroupInfo] = useState<StudyGroup | null>(
     null
   );
+  const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showOtherGroups, setShowOtherGroups] = useState(false);
 
   const router = useRouter();
   const { data: isAuthenticated, isLoading } = useIsAuthenticated();
 
+  // Redux state and actions (keeping for future use)
+  const dispatch = useAppDispatch();
+  const reduxState = useAppSelector((state) => state.studyGroups);
+
   const joinGroupMutation = useJoinStudyGroup();
   const leaveGroupMutation = useLeaveStudyGroup();
-
-  const [modalVisible, setModalVisible] = useState(false);
 
   // Get user data from storage
   useEffect(() => {
@@ -139,11 +151,11 @@ export const StudySpacePage: React.FC = () => {
     getUserData();
   }, []);
 
-  // Fetch groups based on user's education level
+  // Fetch groups using React Query (keeping for now, but managing state with Redux)
   const {
     data: groups,
-    isLoading: groupsLoading,
-    error: groupsError,
+    isLoading: reactQueryGroupsLoading,
+    error: reactQueryGroupsError,
   } = useStudyGroups({
     educationLevel: user?.educationLevel,
     category: user?.category,
@@ -154,8 +166,8 @@ export const StudySpacePage: React.FC = () => {
   // Fetch other groups (different from user's criteria)
   const {
     data: otherGroups,
-    isLoading: otherGroupsLoading,
-    error: otherGroupsError,
+    isLoading: reactQueryOtherGroupsLoading,
+    error: reactQueryOtherGroupsError,
   } = useAllOtherGroups({
     educationLevel: user?.educationLevel,
     category: user?.category,
@@ -333,7 +345,7 @@ export const StudySpacePage: React.FC = () => {
     const level = studyLevels.find((l) => l.id === selectedLevel);
     if (!level) return null;
 
-    if (groupsLoading) {
+    if (reactQueryGroupsLoading) {
       return (
         <View style={[styles.container, styles.centered]}>
           <ActivityIndicator size="large" color={level.color} />
@@ -342,7 +354,7 @@ export const StudySpacePage: React.FC = () => {
       );
     }
 
-    if (groupsError) {
+    if (reactQueryGroupsError) {
       return (
         <View style={styles.screenContainer}>
           <Card style={styles.errorCard}>
@@ -393,30 +405,73 @@ export const StudySpacePage: React.FC = () => {
         />
 
         <View style={styles.groupsContainer}>
-          {filteredGroups && filteredGroups.length > 0 ? (
-            filteredGroups.map(renderGroupCard)
-          ) : searchQuery.trim() ? (
-            <Card style={styles.emptyCard}>
-              <Card.Content>
-                <Title style={styles.emptyTitle}>No Groups Found</Title>
-                <Paragraph>
-                  No groups match your search criteria. Try different keywords.
-                </Paragraph>
-              </Card.Content>
-            </Card>
-          ) : groups && groups.length > 0 ? (
-            groups.map(renderGroupCard)
-          ) : (
-            <Card style={styles.emptyCard}>
-              <Card.Content>
-                <Title style={styles.emptyTitle}>No Groups Available</Title>
-                <Paragraph>
-                  No study groups found for your program. Check back later or
-                  contact your administrator.
-                </Paragraph>
-              </Card.Content>
-            </Card>
-          )}
+          {(() => {
+            // Prioritize joined groups first
+            const allGroups = groups || [];
+            const joinedGroups = allGroups.filter((group) => group.isJoined);
+            const notJoinedGroups = allGroups.filter(
+              (group) => !group.isJoined
+            );
+            const sortedGroups = [...joinedGroups, ...notJoinedGroups];
+
+            // Apply search filter to sorted groups
+            const filteredSortedGroups = searchQuery.trim()
+              ? sortedGroups.filter(
+                  (group) =>
+                    group.name
+                      .toLowerCase()
+                      .includes(searchQuery.toLowerCase()) ||
+                    group.description
+                      .toLowerCase()
+                      .includes(searchQuery.toLowerCase()) ||
+                    group.category
+                      .toLowerCase()
+                      .includes(searchQuery.toLowerCase()) ||
+                    group.graduationYear
+                      .toString()
+                      .includes(searchQuery.toLowerCase())
+                )
+              : sortedGroups;
+
+            if (filteredSortedGroups.length > 0) {
+              return (
+                <>
+                  {joinedGroups.length > 0 && !searchQuery.trim() && (
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionHeaderText}>
+                        Your Groups ({joinedGroups.length})
+                      </Text>
+                    </View>
+                  )}
+                  {filteredSortedGroups.map(renderGroupCard)}
+                </>
+              );
+            } else if (searchQuery.trim()) {
+              return (
+                <Card style={styles.emptyCard}>
+                  <Card.Content>
+                    <Title style={styles.emptyTitle}>No Groups Found</Title>
+                    <Paragraph>
+                      No groups match your search criteria. Try different
+                      keywords.
+                    </Paragraph>
+                  </Card.Content>
+                </Card>
+              );
+            } else {
+              return (
+                <Card style={styles.emptyCard}>
+                  <Card.Content>
+                    <Title style={styles.emptyTitle}>No Groups Available</Title>
+                    <Paragraph>
+                      No study groups found for your program. Check back later
+                      or contact your administrator.
+                    </Paragraph>
+                  </Card.Content>
+                </Card>
+              );
+            }
+          })()}
         </View>
 
         {/* Other Groups Section */}
@@ -440,7 +495,7 @@ export const StudySpacePage: React.FC = () => {
 
         {showOtherGroups && (
           <View style={styles.otherGroupsContainer}>
-            {otherGroupsLoading ? (
+            {reactQueryOtherGroupsLoading ? (
               <View style={styles.centered}>
                 <ActivityIndicator size="small" color={level.color} />
                 <Text style={styles.loadingText}>Loading other groups...</Text>
@@ -818,6 +873,17 @@ const styles = StyleSheet.create({
   },
   groupsContainer: {
     gap: 12,
+  },
+  sectionHeader: {
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  sectionHeaderText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.light.tint,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   groupCard: {
     backgroundColor: "white",

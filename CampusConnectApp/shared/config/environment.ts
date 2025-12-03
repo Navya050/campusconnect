@@ -27,7 +27,7 @@ const getApiUrl = (): string => {
   } else {
     // For mobile devices, localhost won't work - need actual IP
     // You can override this by setting EXPO_PUBLIC_API_URL in .env
-    return "http://172.17.151.175:3406/api";
+    return "http://192.168.4.50:3406/api";
   }
 };
 
