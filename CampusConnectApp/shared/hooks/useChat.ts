@@ -177,7 +177,7 @@ export const useSendMessage = () => {
   return useMutation({
     mutationFn: chatAPI.sendMessage,
     onSuccess: (data, variables) => {
-      // Don't update cache here as socket will handle real-time updates
+      
     },
   });
 };
@@ -188,7 +188,7 @@ export const useSendMedia = () => {
   return useMutation({
     mutationFn: chatAPI.sendMedia,
     onSuccess: (data, variables) => {
-      // Don't update cache here as socket will handle real-time updates
+      
     },
   });
 };
@@ -254,9 +254,9 @@ export const useChat = (groupId: string, currentUserId?: string) => {
     const connectAndJoin = async () => {
       try {
         await socketService.connect();
-        console.log("✅ Socket connected");
+        console.log(" Socket connected");
         await socketService.joinGroup(groupId);
-        console.log("✅ Joined group:", groupId);
+        console.log(" Joined group:", groupId);
         setIsConnected(true);
         setError(null);
 
@@ -271,7 +271,7 @@ export const useChat = (groupId: string, currentUserId?: string) => {
 
     // Event handlers
     const handleNewMessage = (message: ChatMessage) => {
-      console.log("🎉🎉🎉 NEW MESSAGE RECEIVED ON CLIENT:", message);
+      console.log(" NEW MESSAGE RECEIVED ON CLIENT:", message);
       console.log("Current messages count:", messages.length);
       setMessages((prev) => {
         console.log("Previous messages:", prev.length);
@@ -330,7 +330,7 @@ export const useChat = (groupId: string, currentUserId?: string) => {
     };
 
     const setupEventListeners = () => {
-      console.log("📡 Setting up event listeners after connection");
+      console.log(" Setting up event listeners after connection");
       socketService.onNewMessage(handleNewMessage);
       socketService.onUserTyping(handleUserTyping);
       socketService.onMessageDeleted(handleMessageDeleted);
@@ -341,7 +341,7 @@ export const useChat = (groupId: string, currentUserId?: string) => {
 
     return () => {
       // Cleanup
-      console.log("🧹 Cleaning up event listeners");
+      console.log(" Cleaning up event listeners");
       socketService.offNewMessage(handleNewMessage);
       socketService.offUserTyping(handleUserTyping);
       socketService.offMessageDeleted();

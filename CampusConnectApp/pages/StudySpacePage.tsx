@@ -151,7 +151,7 @@ export const StudySpacePage: React.FC = () => {
     getUserData();
   }, []);
 
-  // Fetch groups using React Query (keeping for now, but managing state with Redux)
+  
   const {
     data: groups,
     isLoading: reactQueryGroupsLoading,
@@ -163,7 +163,7 @@ export const StudySpacePage: React.FC = () => {
     userId: user?._id,
   });
 
-  // Fetch other groups (different from user's criteria)
+  // Fetch other groups 
   const {
     data: otherGroups,
     isLoading: reactQueryOtherGroupsLoading,

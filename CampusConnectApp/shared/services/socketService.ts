@@ -76,29 +76,29 @@ class SocketService {
 
         this.socket.on("connect", () => {
           clearTimeout(timeout);
-          console.log("✅ Successfully connected to server");
-          console.log("🔌 Socket ID:", this.socket?.id); // Add this
-          console.log("🔌 Socket connected?", this.socket?.connected);
+          console.log(" Successfully connected to server");
+          console.log(" Socket ID:", this.socket?.id); // Add this
+          console.log(" Socket connected?", this.socket?.connected);
           resolve();
         });
 
         this.socket.on("connect_error", (error) => {
           clearTimeout(timeout);
-          console.error("❌ Socket connection error:", error.message);
+          console.error(" Socket connection error:", error.message);
           console.error("Error details:", error);
           reject(new Error(`Connection failed: ${error.message}`));
         });
 
         this.socket.on("error", (error) => {
-          console.error("❌ Socket error:", error);
+          console.error("Socket error:", error);
         });
 
         this.socket.on("disconnect", (reason) => {
-          console.log("🔌 Socket disconnected:", reason);
+          console.log(" Socket disconnected:", reason);
         });
       });
     } catch (error) {
-      console.error("❌ Failed to connect to socket:", error);
+      console.error(" Failed to connect to socket:", error);
       throw error;
     }
   }
@@ -113,7 +113,7 @@ class SocketService {
       this.socket.removeAllListeners();
       this.socket = null;
       this.currentGroupId = null;
-      console.log("🔌 Socket disconnected and cleaned up");
+      console.log(" Socket disconnected and cleaned up");
     }
   }
 
@@ -132,7 +132,7 @@ class SocketService {
     }
 
     this.currentGroupId = groupId;
-    console.log("📥 Joining group:", groupId); // Add this log
+    console.log(" Joining group:", groupId); // Add this log
     this.socket?.emit("join-group", groupId);
   }
 
@@ -150,7 +150,7 @@ class SocketService {
       throw new Error("Socket not connected");
     }
 
-    console.log("📤 Sending message to group:", groupId); // Add this log
+    console.log(" Sending message to group:", groupId); // Add this log
     this.socket.emit("send-message", {
       groupId,
       message,
@@ -194,24 +194,24 @@ class SocketService {
   // Event listeners
   onNewMessage(callback: (message: ChatMessage) => void): void {
     if (!this.socket) {
-      console.error("❌ Socket not initialized!");
+      console.error(" Socket not initialized!");
       return;
     }
 
     if (!this.socket.connected) {
-      console.error("❌ Socket not connected!");
+      console.error(" Socket not connected!");
       return;
     }
 
-    console.log("👂 Setting up listener for 'new-message' event");
-    console.log("🔌 Socket connected?", this.socket.connected);
-    console.log("🔌 Socket ID:", this.socket.id);
+    console.log(" Setting up listener for 'new-message' event");
+    console.log(" Socket connected?", this.socket.connected);
+    console.log(" Socket ID:", this.socket.id);
 
     this.socket.off("new-message");
 
     // Test listener
     this.socket.on("new-message", (data) => {
-      console.log("📨📨📨 RAW EVENT RECEIVED:", data);
+      console.log(" RAW EVENT RECEIVED:", data);
       callback(data);
     });
   }
